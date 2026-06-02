@@ -22,11 +22,11 @@ export const Hero = () => (
             tuned to your body.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Button size="lg" className="bg-gradient-neural text-primary-foreground font-semibold hover:opacity-90 glow-neon group">
-              Scan an ingredient <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+            <Button asChild size="lg" className="bg-gradient-neural text-primary-foreground font-semibold hover:opacity-90 glow-neon group">
+              <a href="#recognition">Scan an ingredient <ArrowRight className="ml-1 h-4 w-4 group-hover:translate-x-1 transition-transform" /></a>
             </Button>
-            <Button size="lg" variant="outline" className="border-primary/40 hover:bg-primary/10">
-              Explore the database
+            <Button asChild size="lg" variant="outline" className="border-primary/40 hover:bg-primary/10">
+              <a href="#diet">Build my plan</a>
             </Button>
           </div>
           <div className="grid grid-cols-3 gap-4 pt-6 max-w-md">

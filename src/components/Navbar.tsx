@@ -2,11 +2,13 @@ import { Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const links = [
-  { label: "Recognition", href: "#recognition" },
-  { label: "Analyzer", href: "#analyzer" },
-  { label: "Dashboard", href: "#dashboard" },
-  { label: "Innovations", href: "#innovations" },
-  { label: "Database", href: "#database" },
+  { label: "Recognize", href: "#recognition" },
+  { label: "BMI", href: "#bmi" },
+  { label: "Diet", href: "#diet" },
+  { label: "Fitness", href: "#fitness" },
+  { label: "Voice", href: "#voice" },
+  { label: "Recipes", href: "#recipes" },
+  { label: "Brain", href: "#brain" },
 ];
 
 export const Navbar = () => (
@@ -27,8 +29,8 @@ export const Navbar = () => (
             </a>
           ))}
         </div>
-        <Button size="sm" className="bg-gradient-neural text-primary-foreground font-semibold hover:opacity-90 glow-cyan">
-          Launch App
+        <Button asChild size="sm" className="bg-gradient-neural text-primary-foreground font-semibold hover:opacity-90 glow-cyan">
+          <a href="#recognition">Launch App</a>
         </Button>
       </nav>
     </div>
