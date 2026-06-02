@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { Upload, Loader2, X, Sparkles } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Upload, Loader2, X, Sparkles, Camera, CameraOff, RefreshCw, Aperture } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { fileToDataUrl, invokeFn } from "@/lib/api";
@@ -9,6 +9,11 @@ interface Result { items: Item[]; summary: string; health_score: number; }
 
 export const FoodRecognition = () => {
   const fileRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [mode, setMode] = useState<"upload" | "camera">("upload");
+  const [cameraOn, setCameraOn] = useState(false);
+  const [facing, setFacing] = useState<"environment" | "user">("environment");
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
@@ -17,6 +22,10 @@ export const FoodRecognition = () => {
     if (file.size > 8 * 1024 * 1024) { toast.error("Image must be under 8MB"); return; }
     const dataUrl = await fileToDataUrl(file);
     setPreview(dataUrl);
+    await analyze(dataUrl);
+  };
+
+  const analyze = async (dataUrl: string) => {
     setResult(null);
     setLoading(true);
     try {
@@ -30,22 +39,142 @@ export const FoodRecognition = () => {
     }
   };
 
+  const stopCamera = () => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setCameraOn(false);
+  };
+
+  const startCamera = async (which: "environment" | "user" = facing) => {
+    stopCamera();
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast.error("Camera API not supported in this browser");
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: which }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      setFacing(which);
+      setCameraOn(true);
+      // attach on next tick once video element is mounted
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+      }, 50);
+    } catch (e: any) {
+      toast.error(e?.message || "Could not access camera. Check permissions.");
+    }
+  };
+
+  const flipCamera = () => startCamera(facing === "environment" ? "user" : "environment");
+
+  const capture = async () => {
+    const video = videoRef.current;
+    if (!video || video.videoWidth === 0) { toast.error("Camera not ready yet"); return; }
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+    setPreview(dataUrl);
+    stopCamera();
+    await analyze(dataUrl);
+  };
+
+  const switchMode = (next: "upload" | "camera") => {
+    if (next === "upload") stopCamera();
+    setMode(next);
+  };
+
+  useEffect(() => () => stopCamera(), []);
+
   return (
     <section id="recognition" className="py-24">
       <div className="container mx-auto px-4">
         <div className="max-w-2xl mb-10">
           <div className="font-mono text-xs uppercase tracking-widest text-neon mb-3">// Vision</div>
           <h2 className="font-display text-4xl md:text-5xl font-bold">Snap. Recognize. <span className="text-gradient">Decode.</span></h2>
-          <p className="text-muted-foreground mt-3">Upload any meal photo. Our neural model identifies ingredients and estimates nutrition in seconds.</p>
+          <p className="text-muted-foreground mt-3">Use your camera or upload a meal photo. Our CNN-based vision model identifies ingredients and estimates nutrition in seconds.</p>
+        </div>
+
+        <div className="inline-flex glass rounded-full p-1 mb-6">
+          <button
+            onClick={() => switchMode("upload")}
+            className={`px-4 py-2 rounded-full text-xs font-mono uppercase tracking-widest transition ${mode === "upload" ? "bg-gradient-neural text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Upload className="h-3.5 w-3.5 inline mr-1.5" />Upload
+          </button>
+          <button
+            onClick={() => switchMode("camera")}
+            className={`px-4 py-2 rounded-full text-xs font-mono uppercase tracking-widest transition ${mode === "camera" ? "bg-gradient-neural text-primary-foreground" : "text-muted-foreground hover:text-foreground"}`}
+          >
+            <Camera className="h-3.5 w-3.5 inline mr-1.5" />Live Camera
+          </button>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
           <div
             className="glass-strong rounded-3xl p-6 border-glow min-h-[360px] flex flex-col items-center justify-center relative overflow-hidden"
             onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) onFile(f); }}
+            onDrop={(e) => { if (mode !== "upload") return; e.preventDefault(); const f = e.dataTransfer.files?.[0]; if (f) onFile(f); }}
           >
-            {preview ? (
+            {mode === "camera" ? (
+              cameraOn ? (
+                <div className="relative w-full">
+                  <video ref={videoRef} playsInline muted className="rounded-2xl w-full max-h-[360px] object-cover bg-black" />
+                  <div className="pointer-events-none absolute inset-0 rounded-2xl border border-neon/40 shadow-[inset_0_0_60px_hsl(var(--primary)/0.25)]" />
+                  <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                    <Button onClick={capture} disabled={loading} className="bg-gradient-neural text-primary-foreground font-semibold">
+                      <Aperture className="h-4 w-4 mr-2" /> Capture & Scan
+                    </Button>
+                    <Button onClick={flipCamera} variant="secondary" size="icon" aria-label="Flip camera">
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                    <Button onClick={stopCamera} variant="secondary" size="icon" aria-label="Stop camera">
+                      <CameraOff className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ) : preview ? (
+                <div className="relative w-full">
+                  <img src={preview} alt="Captured meal" className="rounded-2xl w-full max-h-[360px] object-cover" />
+                  <button
+                    onClick={() => { setPreview(null); setResult(null); }}
+                    className="absolute top-3 right-3 glass rounded-full p-2 hover:bg-destructive/20"
+                    aria-label="Remove image"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                  {loading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-background/70 backdrop-blur-sm rounded-2xl">
+                      <div className="text-center">
+                        <Loader2 className="h-8 w-8 mx-auto animate-spin text-neon" />
+                        <div className="font-mono text-xs text-neon mt-3 uppercase tracking-widest">Running CNN inference…</div>
+                      </div>
+                    </div>
+                  )}
+                  <Button onClick={() => startCamera()} variant="secondary" className="absolute bottom-3 left-3">
+                    <Camera className="h-4 w-4 mr-2" /> Scan another
+                  </Button>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <Camera className="h-10 w-10 mx-auto text-neon mb-4" />
+                  <p className="font-display font-semibold">Live food scanner</p>
+                  <p className="text-sm text-muted-foreground mb-5">Point your camera at any meal or ingredient</p>
+                  <Button onClick={() => startCamera()} className="bg-gradient-neural text-primary-foreground font-semibold">
+                    <Camera className="h-4 w-4 mr-2" /> Enable camera
+                  </Button>
+                </div>
+              )
+            ) : preview ? (
               <div className="relative w-full">
                 <img src={preview} alt="Uploaded meal" className="rounded-2xl w-full max-h-[360px] object-cover" />
                 <button
@@ -59,7 +188,7 @@ export const FoodRecognition = () => {
                   <div className="absolute inset-0 flex items-center justify-center bg-background/70 backdrop-blur-sm rounded-2xl">
                     <div className="text-center">
                       <Loader2 className="h-8 w-8 mx-auto animate-spin text-neon" />
-                      <div className="font-mono text-xs text-neon mt-3 uppercase tracking-widest">Analyzing pixels…</div>
+                      <div className="font-mono text-xs text-neon mt-3 uppercase tracking-widest">Running CNN inference…</div>
                     </div>
                   </div>
                 )}
