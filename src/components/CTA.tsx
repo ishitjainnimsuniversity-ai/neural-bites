@@ -15,11 +15,11 @@ export const CTA = () => (
             Join 40,000+ early adopters rewiring how humans relate to food, one ingredient at a time.
           </p>
           <div className="mt-9 flex flex-wrap gap-3 justify-center">
-            <Button size="lg" className="bg-gradient-neural text-primary-foreground font-semibold hover:opacity-90 glow-neon">
-              Get early access <ArrowRight className="ml-1 h-4 w-4" />
+            <Button asChild size="lg" className="bg-gradient-neural text-primary-foreground font-semibold hover:opacity-90 glow-neon">
+              <a href="#recognition">Get started <ArrowRight className="ml-1 h-4 w-4" /></a>
             </Button>
-            <Button size="lg" variant="outline" className="border-primary/40 hover:bg-primary/10">
-              Read the manifesto
+            <Button asChild size="lg" variant="outline" className="border-primary/40 hover:bg-primary/10">
+              <a href="#voice">Ask the AI</a>
             </Button>
           </div>
         </div>
