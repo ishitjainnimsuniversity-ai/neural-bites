@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Loader2, CheckCircle2, X } from "lucide-react";
+import { ArrowRight, Loader2, CheckCircle2, X, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { invokeFn } from "@/lib/api";
 
 const MANIFESTO = `# The Neural+Bites Manifesto
 
@@ -18,27 +19,40 @@ Join 40,000+ early adopters rewiring how humans relate to food, one ingredient a
 
 export const CTA = () => {
   const [email, setEmail] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [joined, setJoined] = useState(false);
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [message, setMessage] = useState<string>("");
   const [showManifesto, setShowManifesto] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = email.trim();
     if (!/^\S+@\S+\.\S+$/.test(trimmed)) {
-      toast.error("Enter a valid email");
+      setStatus("error");
+      setMessage("Please enter a valid email address.");
+      toast.error("Please enter a valid email address.");
       return;
     }
-    setLoading(true);
+    setStatus("loading");
+    setMessage("");
     try {
-      const list = JSON.parse(localStorage.getItem("nb_early_access") || "[]");
-      if (!list.includes(trimmed)) list.push(trimmed);
-      localStorage.setItem("nb_early_access", JSON.stringify(list));
-      await new Promise((r) => setTimeout(r, 600));
-      setJoined(true);
-      toast.success("You're on the list — welcome to the singularity.");
-    } finally {
-      setLoading(false);
+      const res = await invokeFn<{ ok: true; alreadySubscribed: boolean }>(
+        "early-access",
+        { email: trimmed, source: "cta_section" },
+      );
+      setStatus("success");
+      setMessage(
+        res.alreadySubscribed
+          ? "You're already on the list — see you soon."
+          : "You're on the list — welcome to the singularity.",
+      );
+      toast.success(
+        res.alreadySubscribed ? "Already subscribed." : "You're on the list.",
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Could not save your email. Please try again.";
+      setStatus("error");
+      setMessage(msg);
+      toast.error(msg);
     }
   };
 
@@ -55,25 +69,44 @@ export const CTA = () => {
           <p className="mt-6 text-muted-foreground max-w-xl mx-auto">
             Join 40,000+ early adopters rewiring how humans relate to food, one ingredient at a time.
           </p>
-          {joined ? (
+          {status === "success" ? (
             <div className="mt-9 inline-flex items-center gap-2 glass rounded-full px-5 py-3 text-sm">
               <CheckCircle2 className="h-4 w-4 text-neon" />
-              You're on the early access list.
+              {message}
             </div>
           ) : (
-            <form onSubmit={submit} className="mt-9 flex flex-col sm:flex-row gap-3 justify-center max-w-md mx-auto">
-              <Input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@futurefood.ai"
-                className="bg-input/60 border-primary/30 h-12 text-center sm:text-left"
-              />
-              <Button type="submit" size="lg" disabled={loading} className="bg-gradient-neural text-primary-foreground font-semibold hover:opacity-90 glow-neon">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <>Get early access <ArrowRight className="ml-1 h-4 w-4" /></>}
-              </Button>
-            </form>
+            <>
+              <form onSubmit={submit} className="mt-9 flex flex-col sm:flex-row gap-3 justify-center max-w-md mx-auto" noValidate>
+                <Input
+                  type="email"
+                  required
+                  maxLength={255}
+                  value={email}
+                  onChange={(e) => { setEmail(e.target.value); if (status === "error") setStatus("idle"); }}
+                  placeholder="you@futurefood.ai"
+                  aria-invalid={status === "error"}
+                  disabled={status === "loading"}
+                  className="bg-input/60 border-primary/30 h-12 text-center sm:text-left"
+                />
+                <Button
+                  type="submit"
+                  size="lg"
+                  disabled={status === "loading"}
+                  className="bg-gradient-neural text-primary-foreground font-semibold hover:opacity-90 glow-neon"
+                >
+                  {status === "loading" ? (
+                    <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Joining…</>
+                  ) : (
+                    <>Get early access <ArrowRight className="ml-1 h-4 w-4" /></>
+                  )}
+                </Button>
+              </form>
+              {status === "error" && (
+                <div className="mt-3 inline-flex items-center gap-2 text-sm text-destructive">
+                  <AlertCircle className="h-4 w-4" /> {message}
+                </div>
+              )}
+            </>
           )}
           <div className="mt-4">
             <Button onClick={() => setShowManifesto(true)} size="lg" variant="outline" className="border-primary/40 hover:bg-primary/10">
