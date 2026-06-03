@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Volume2, Loader2, Send } from "lucide-react";
+import { Mic, MicOff, Volume2, Loader2, Send, AlertCircle, RefreshCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { invokeFn } from "@/lib/api";
@@ -14,6 +14,7 @@ export const VoiceAssistant = () => {
   const [loading, setLoading] = useState(false);
   const [typed, setTyped] = useState("");
   const [micError, setMicError] = useState<string>("");
+  const [permState, setPermState] = useState<"unknown" | "prompt" | "granted" | "denied">("unknown");
   const recRef = useRef<SR | null>(null);
 
   const SRClass = typeof window !== "undefined" && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
@@ -21,6 +22,18 @@ export const VoiceAssistant = () => {
   const isSecure = typeof window !== "undefined" && (window.isSecureContext || location.hostname === "localhost");
 
   useEffect(() => () => { try { recRef.current?.stop?.(); } catch {} }, []);
+
+  const refreshPerm = async () => {
+    try {
+      // @ts-ignore
+      const status = await navigator.permissions?.query?.({ name: "microphone" as PermissionName });
+      if (status) {
+        setPermState(status.state as any);
+        status.onchange = () => setPermState(status.state as any);
+      }
+    } catch { /* ignore */ }
+  };
+  useEffect(() => { refreshPerm(); }, []);
 
   const ask = async (q: string) => {
     if (!q.trim()) return;
