@@ -142,6 +142,27 @@ export const VoiceAssistant = () => {
           </div>
 
           <div className="glass-strong rounded-3xl p-10 border-glow text-center">
+            {(permState === "denied") && (
+              <div className="glass rounded-2xl border border-destructive/50 p-3 mb-5 flex items-start gap-3 text-left">
+                <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-1" />
+                <div className="flex-1 text-xs">
+                  <div className="font-semibold text-destructive">Microphone access blocked</div>
+                  <div className="text-muted-foreground">Allow mic in your browser site settings, then retry.</div>
+                </div>
+                <Button size="sm" variant="outline" onClick={toggle}>
+                  <RefreshCcw className="h-3 w-3 mr-1" /> Retry
+                </Button>
+              </div>
+            )}
+            {permState === "prompt" && (
+              <div className="glass rounded-2xl border border-primary/40 p-3 mb-5 flex items-start gap-3 text-left">
+                <Mic className="h-4 w-4 text-neon shrink-0 mt-1" />
+                <div className="flex-1 text-xs">
+                  <div className="font-semibold">Mic permission needed</div>
+                  <div className="text-muted-foreground">Tap the orb and allow microphone access when prompted.</div>
+                </div>
+              </div>
+            )}
             <button
               onClick={toggle}
               disabled={loading}
