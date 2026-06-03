@@ -12,7 +12,7 @@ import { Fitness } from "@/components/sections/Fitness";
 import { VoiceAssistant } from "@/components/sections/VoiceAssistant";
 import { Recipes } from "@/components/sections/Recipes";
 import { Restaurants } from "@/components/sections/Restaurants";
-import { NeuralBrain3D } from "@/components/sections/NeuralBrain3D";
+import { AIMirror } from "@/components/sections/AIMirror";
 
 const Index = () => (
   <div className="min-h-screen text-foreground">
@@ -28,7 +28,7 @@ const Index = () => (
       <VoiceAssistant />
       <Recipes />
       <Restaurants />
-      <NeuralBrain3D />
+      <AIMirror />
       <Flow />
       <CTA />
     </main>

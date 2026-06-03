@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Volume2, Loader2, Send } from "lucide-react";
+import { Mic, MicOff, Volume2, Loader2, Send, AlertCircle, RefreshCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { invokeFn } from "@/lib/api";
@@ -14,6 +14,7 @@ export const VoiceAssistant = () => {
   const [loading, setLoading] = useState(false);
   const [typed, setTyped] = useState("");
   const [micError, setMicError] = useState<string>("");
+  const [permState, setPermState] = useState<"unknown" | "prompt" | "granted" | "denied">("unknown");
   const recRef = useRef<SR | null>(null);
 
   const SRClass = typeof window !== "undefined" && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
@@ -21,6 +22,18 @@ export const VoiceAssistant = () => {
   const isSecure = typeof window !== "undefined" && (window.isSecureContext || location.hostname === "localhost");
 
   useEffect(() => () => { try { recRef.current?.stop?.(); } catch {} }, []);
+
+  const refreshPerm = async () => {
+    try {
+      // @ts-ignore
+      const status = await navigator.permissions?.query?.({ name: "microphone" as PermissionName });
+      if (status) {
+        setPermState(status.state as any);
+        status.onchange = () => setPermState(status.state as any);
+      }
+    } catch { /* ignore */ }
+  };
+  useEffect(() => { refreshPerm(); }, []);
 
   const ask = async (q: string) => {
     if (!q.trim()) return;
@@ -57,6 +70,7 @@ export const VoiceAssistant = () => {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         // We don't need the stream itself; SpeechRecognition opens its own.
         stream.getTracks().forEach((t) => t.stop());
+        setPermState("granted");
       }
     } catch (err: any) {
       const name = err?.name || "";
@@ -66,7 +80,7 @@ export const VoiceAssistant = () => {
           : name === "NotFoundError"
           ? "No microphone found. Plug one in and retry."
           : "Couldn't access the microphone. Check browser permissions.";
-      setMicError(m); toast.error(m); return;
+      setMicError(m); setPermState("denied"); toast.error(m); return;
     }
 
     try {
@@ -80,6 +94,7 @@ export const VoiceAssistant = () => {
       r.onerror = (e: any) => {
         setListening(false);
         const code = e?.error || "";
+        if (code === "not-allowed" || code === "service-not-allowed") setPermState("denied");
         const m =
           code === "not-allowed" || code === "service-not-allowed"
             ? "Mic blocked. Allow microphone access in browser site settings."
@@ -127,6 +142,27 @@ export const VoiceAssistant = () => {
           </div>
 
           <div className="glass-strong rounded-3xl p-10 border-glow text-center">
+            {(permState === "denied") && (
+              <div className="glass rounded-2xl border border-destructive/50 p-3 mb-5 flex items-start gap-3 text-left">
+                <AlertCircle className="h-4 w-4 text-destructive shrink-0 mt-1" />
+                <div className="flex-1 text-xs">
+                  <div className="font-semibold text-destructive">Microphone access blocked</div>
+                  <div className="text-muted-foreground">Allow mic in your browser site settings, then retry.</div>
+                </div>
+                <Button size="sm" variant="outline" onClick={toggle}>
+                  <RefreshCcw className="h-3 w-3 mr-1" /> Retry
+                </Button>
+              </div>
+            )}
+            {permState === "prompt" && (
+              <div className="glass rounded-2xl border border-primary/40 p-3 mb-5 flex items-start gap-3 text-left">
+                <Mic className="h-4 w-4 text-neon shrink-0 mt-1" />
+                <div className="flex-1 text-xs">
+                  <div className="font-semibold">Mic permission needed</div>
+                  <div className="text-muted-foreground">Tap the orb and allow microphone access when prompted.</div>
+                </div>
+              </div>
+            )}
             <button
               onClick={toggle}
               disabled={loading}

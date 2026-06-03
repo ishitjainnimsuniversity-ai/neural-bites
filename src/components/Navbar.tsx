@@ -9,7 +9,7 @@ const links = [
   { label: "Recipes", target: "recipes" },
   { label: "Fitness", target: "fitness" },
   { label: "Voice", target: "voice" },
-  { label: "Brain", target: "brain" },
+  { label: "AI Mirror", target: "mirror" },
 ];
 
 const scrollTo = (id: string) => {
