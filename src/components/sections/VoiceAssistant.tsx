@@ -94,6 +94,7 @@ export const VoiceAssistant = () => {
       r.onerror = (e: any) => {
         setListening(false);
         const code = e?.error || "";
+        if (code === "not-allowed" || code === "service-not-allowed") setPermState("denied");
         const m =
           code === "not-allowed" || code === "service-not-allowed"
             ? "Mic blocked. Allow microphone access in browser site settings."
