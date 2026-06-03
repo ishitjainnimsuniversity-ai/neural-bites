@@ -70,6 +70,7 @@ export const VoiceAssistant = () => {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         // We don't need the stream itself; SpeechRecognition opens its own.
         stream.getTracks().forEach((t) => t.stop());
+        setPermState("granted");
       }
     } catch (err: any) {
       const name = err?.name || "";
@@ -79,7 +80,7 @@ export const VoiceAssistant = () => {
           : name === "NotFoundError"
           ? "No microphone found. Plug one in and retry."
           : "Couldn't access the microphone. Check browser permissions.";
-      setMicError(m); toast.error(m); return;
+      setMicError(m); setPermState("denied"); toast.error(m); return;
     }
 
     try {
