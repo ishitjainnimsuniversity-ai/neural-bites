@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "./pages/Index.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import Certificate from "./pages/Certificate.tsx";
+import Verify from "./pages/Verify.tsx";
 
 const queryClient = new QueryClient();
 
@@ -16,6 +18,9 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/certificate/:serial" element={<Certificate />} />
+          <Route path="/verify" element={<Verify />} />
+          <Route path="/verify/:serial" element={<Verify />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
