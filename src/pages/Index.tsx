@@ -13,6 +13,7 @@ import { VoiceAssistant } from "@/components/sections/VoiceAssistant";
 import { Recipes } from "@/components/sections/Recipes";
 import { Restaurants } from "@/components/sections/Restaurants";
 import { AIMirror } from "@/components/sections/AIMirror";
+import { Academy } from "@/components/sections/Academy";
 
 const Index = () => (
   <div className="min-h-screen text-foreground">
@@ -29,6 +30,7 @@ const Index = () => (
       <Recipes />
       <Restaurants />
       <AIMirror />
+      <Academy />
       <Flow />
       <CTA />
     </main>
