@@ -1,10 +1,24 @@
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getCertificate } from "@/lib/academy";
-import { Award, ShieldCheck } from "lucide-react";
+import { getCertificate, type Certificate as Cert } from "@/lib/academy";
+import { cloudGetCertificate } from "@/lib/cloudSync";
+import { Award, ShieldCheck, Loader2 } from "lucide-react";
 
 export default function Certificate() {
   const { serial = "" } = useParams();
-  const cert = getCertificate(serial);
+  const [cert, setCert] = useState<Cert | null>(null);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    (async () => {
+      const remote = await cloudGetCertificate(serial).catch(() => null);
+      setCert(remote ?? getCertificate(serial) ?? null);
+      setLoading(false);
+    })();
+  }, [serial]);
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-neon" /></div>
+  );
   if (!cert) return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-3 text-center p-6">
       <div className="text-2xl font-display font-bold">Certificate not found</div>
