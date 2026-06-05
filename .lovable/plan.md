@@ -1,59 +1,43 @@
-You're asking for a lot at once — let me lock the scope before I build, because some of it (a real human female teacher on screen, full-body live health streaming with real anatomy, accredited bachelor/master degrees with legally valid certificates) cannot be built literally in a web app. I'll explain what's realistically possible and how I'll deliver the *feeling* of each request.
+# Auth, Cloud Sync & Curated Academy Videos
 
-## What I'll build now
+## 1. Authentication
+- Add email/password + Google sign-in using Lovable Cloud managed auth (`lovable.auth.signInWithOAuth`).
+- New `/auth` page (sign-in / sign-up tabs) and `/reset-password` page.
+- Navbar: show user email + Sign out when logged in; Sign in button otherwise.
+- `useSession` hook with `onAuthStateChange` + `getUser()` for trusted checks.
+- Email confirmation stays on (default). Auto-confirm NOT enabled.
 
-### 1. Fix the mic (Voice Assistant)
-- Verify the permission banner + retry flow works.
-- Add an explicit "Allow microphone" CTA before first use, clearer error copy.
+## 2. Database (one migration)
+Tables (all RLS-enabled, GRANTs included, `user_id uuid references auth.users on delete cascade`):
+- `profiles` — name, age, sex, height_cm, weight_kg, goal, intensity, target_fat_kg, fasting_hours, photo_url
+- `course_progress` — course_id, watched jsonb, last_active_at
+- `exam_attempts` — course_id, exam_id, score numeric, passed bool, at timestamptz
+- `certificates` — serial (unique), course_id, course_title, user_name, issued_at
+- Trigger: auto-insert empty `profiles` row on new auth user (handle_new_user)
+- `updated_at` trigger on profiles & course_progress
 
-### 2. AI Mirror — major upgrade ("Train with live AI coach")
-- **User profile gate**: Before training, collect Name, Age, Sex, Weight, Height, Photo upload, Goal (lose fat / gain muscle / endurance / flexibility / rehab / general fitness), Goal intensity (rapid / moderate / slow), Target fat loss (kg), Daily fast/eating window.
-- Save profile to localStorage so name + photo show in the live stream HUD instead of dummy data.
-- **Live HUD overlay** on the webcam: user's photo, name, age, real-time heart-zone estimate (from movement intensity), calories, reps, session time, body-region activity bar (upper / core / lower) derived from motion detection on the video frame.
-- **Movement tracking**: lightweight motion-energy tracker per region of the frame (no extra ML deps) so reps and active body areas update from actual movement, not a fixed timer.
-- **"Female AI coach" presence**: render a generated female coach avatar (looping subtle idle animation, lip-flash while speaking) next to the camera feed. I'll be upfront: this is an AI-rendered avatar, not a real human teacher streaming in — real human trainers require a separate live-streaming service and hiring real coaches.
-- **Goal-based program library**: replace "fat loss only" drills with categories — Fat loss, Muscle build, Endurance, Flexibility/Yoga, Rehab/Mobility, Senior-friendly, Kids/Teens — each filtered by age group (under-18, 18-39, 40-59, 60+).
-- **Auto-generated plan + diet chart** from profile (using Mifflin-St Jeor + goal intensity) — workout split per week and a 7-day diet chart (kcal target, protein/carb/fat grams, sample meals).
+RLS: each user can select/insert/update/delete only their own rows. Certificates: owner can read+insert; **anon can SELECT** (for public `/verify/:serial` page).
 
-### 3. NeuralBites Academy (new section)
-A free in-app learning hub with three tracks shown side-by-side in columns:
+## 3. Sync layer
+- `src/lib/cloudSync.ts` — load/save profile, progress, certs against the DB when authed; fall back to localStorage when not authed.
+- On login, one-shot migrate any local `nb.*` keys → DB, then clear local copies.
+- `loadProfile`, `enroll`, `saveProgress`, `issueCertificate` in `src/lib/profile.ts` / `academy.ts` become async-capable wrappers; UI uses React Query to read.
+- `/verify/:serial` reads from DB first, falls back to local.
 
-| Column | Crash Course (2h) | Bachelor (BSc) track | Master (MSc) track |
-|---|---|---|---|
-| Length | 2 hours, 10 modules | Multi-month, video-based | Multi-month, video-based |
-| Content | Your 10-module syllabus (Anatomy → Career roadmap) | MIU Yoga & Ayurveda style + ASU Health Sciences style | VaYU MS Yoga, Creighton Integrative Health, Bastyr Exercise Science styles |
-| Price | Free | Free | Free |
+## 4. AIMirror / Academy / Certificate UI
+- Gate "Issue certificate" and "Save progress" behind auth — prompt sign-in if anonymous (with friendly modal, still allow local demo mode).
+- Show "Synced ✓" indicator when authed.
+- Certificate page fetches by serial from DB.
 
-For each course:
-- Registration form (name, email, age, ID photo) stored in backend.
-- Module list with **full-length embedded video lessons** — I'll wire the player and seed it with curated public YouTube lecture playlists for each topic (anatomy, FITT, pranayama, nutrition, etc.). I cannot host original 1000-hour video myself; the player + progress tracking + module structure is real, the video sources are curated public lectures.
-- **Progress + anti-skip enforcement**: video must play to ≥95% before next module unlocks; skipping forward is blocked; if a user abandons a course for >X days, credits reset to 0 (per your "no shortcut" rule).
-- **Exams**: weekly quiz, periodic (monthly) exam, yearly final. Negative marking (-0.25 per wrong). Auto-graded. Pass threshold per exam.
-- **Certificate generation** on full completion: PDF with user name, course, date, dual signatures **Ishit Jain (CEO, NeuralBites)** and **Shreya Thakur (CEO, NeuralBites)**, and a serial number stored in DB so a `/verify/:serial` page can confirm authenticity.
+## 5. Curated academy videos
+Swap module `videoId`s in `src/lib/academy.ts` to well-known stable lectures (e.g. Yoga With Adriene, TED-Ed, Harvard T.H. Chan, Mayo Clinic, Jeff Nippard, Andrew Huberman public clips). Verify each ID via oEmbed before committing.
 
-## Honest limits I need you to accept before I build
+## 6. Out of scope this round
+- Profile photo upload to storage (kept as data URL / null for now).
+- Realtime collaboration, admin dashboards.
+- Course/module CRUD in DB — courses remain static in `academy.ts`; only per-user progress is in DB.
 
-1. **Real human female teacher live on screen** — not possible without hiring actual trainers and running a video-conference platform (Zoom/LiveKit/Agora). I'll ship a **generated female AI coach avatar** with voice. If you want real humans later, that's a separate business + integration.
-2. **"World's first healthcare"-grade body scanning / full anatomy from webcam** — true medical-grade vitals from a webcam aren't real. I'll ship **estimated** metrics (movement intensity → heart-zone estimate, calories from MET tables) clearly labeled as estimates, plus a body-region activity overlay from motion detection. No fake "live ECG / live blood pressure".
-3. **Legally accredited Bachelor/Master degrees** — Lovable cannot issue real BSc/MSc degrees from MIU, ASU, VaYU, Creighton, Bastyr. Those are real universities; I can't impersonate them. What I *can* ship: a **NeuralBites Academy certificate** (clearly a NeuralBites credential, not a university degree) signed by Ishit Jain and Shreya Thakur, with verifiable serial numbers. The course *content* will mirror the syllabus you listed.
-4. **Full-length original video** for every module — I'll embed curated public lectures (YouTube) per topic and track progress against them. Producing original 1000-hour video isn't something an app build can do.
-
-## Technical plan
-
-- DB tables: `profiles` (user fitness profile + photo url), `courses`, `modules` (with `video_url`, `duration_sec`, `order`), `enrollments` (user_id, course_id, started_at, last_active_at), `module_progress` (watched_seconds, completed), `exams`, `exam_attempts` (score, negative_marks), `certificates` (serial, user_id, course_id, issued_at).
-- Storage bucket `user-photos` for profile pictures.
-- Edge functions: `enroll-course`, `submit-exam`, `issue-certificate` (generates PDF server-side), `verify-certificate`.
-- Frontend: new `/academy`, `/academy/:courseId`, `/academy/:courseId/module/:moduleId`, `/verify/:serial` routes. Profile gate component reused across AI Mirror + Academy.
-- AI Mirror: motion-energy tracker via canvas pixel diff; generated female coach avatar image (premium imagegen) with CSS speaking animation; existing `ai-coach` edge function expanded to take profile + goal + age group.
-- Anti-skip: `<video>` `onseeking` blocked beyond `maxWatched`; `requestVideoFrameCallback` to update watched seconds; unlock next module when `watched_seconds / duration >= 0.95`.
-
-## Build order (so you see progress fast)
-
-1. Profile gate + localStorage profile + photo upload → AI Mirror HUD with real name/photo/age + motion-based reps and body-region activity.
-2. Female AI coach avatar + expanded goal/age-group drill library + auto diet chart.
-3. Voice Assistant mic polish.
-4. Academy: DB schema + course/module/enrollment/progress + Crash Course seeded with your 10 modules + UI with the three-column track view.
-5. Exam engine (weekly/periodic/yearly, negative marking) + anti-skip video.
-6. Certificate generation + verification page.
-
-This is large — expect it across several turns. Reply **"approve"** to start with step 1, or tell me which limit you'd like to revisit first.
+## Technical notes
+- Use `@/integrations/lovable` for OAuth; `@/integrations/supabase/client` for queries.
+- Order: migration → auth pages → useSession + Navbar → cloudSync + wire AIMirror/Academy/Certificate → curate videos.
+- Video curation done via oEmbed check script in /tmp to avoid dead links.

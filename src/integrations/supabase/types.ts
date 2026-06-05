@@ -14,6 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      certificates: {
+        Row: {
+          course_id: string
+          course_title: string
+          id: string
+          issued_at: string
+          serial: string
+          user_id: string
+          user_name: string
+        }
+        Insert: {
+          course_id: string
+          course_title: string
+          id?: string
+          issued_at?: string
+          serial: string
+          user_id: string
+          user_name: string
+        }
+        Update: {
+          course_id?: string
+          course_title?: string
+          id?: string
+          issued_at?: string
+          serial?: string
+          user_id?: string
+          user_name?: string
+        }
+        Relationships: []
+      }
+      course_progress: {
+        Row: {
+          course_id: string
+          created_at: string
+          enrolled_at: string
+          id: string
+          last_active_at: string
+          updated_at: string
+          user_id: string
+          watched: Json
+        }
+        Insert: {
+          course_id: string
+          created_at?: string
+          enrolled_at?: string
+          id?: string
+          last_active_at?: string
+          updated_at?: string
+          user_id: string
+          watched?: Json
+        }
+        Update: {
+          course_id?: string
+          created_at?: string
+          enrolled_at?: string
+          id?: string
+          last_active_at?: string
+          updated_at?: string
+          user_id?: string
+          watched?: Json
+        }
+        Relationships: []
+      }
       early_access_subscribers: {
         Row: {
           created_at: string
@@ -35,6 +98,84 @@ export type Database = {
           id?: string
           source?: string | null
           user_agent?: string | null
+        }
+        Relationships: []
+      }
+      exam_attempts: {
+        Row: {
+          attempted_at: string
+          course_id: string
+          exam_id: string
+          id: string
+          passed: boolean
+          score: number
+          user_id: string
+        }
+        Insert: {
+          attempted_at?: string
+          course_id: string
+          exam_id: string
+          id?: string
+          passed: boolean
+          score: number
+          user_id: string
+        }
+        Update: {
+          attempted_at?: string
+          course_id?: string
+          exam_id?: string
+          id?: string
+          passed?: boolean
+          score?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          age: number | null
+          created_at: string
+          fasting_hours: number | null
+          goal: string | null
+          height_cm: number | null
+          id: string
+          intensity: string | null
+          name: string | null
+          photo_url: string | null
+          sex: string | null
+          target_fat_kg: number | null
+          updated_at: string
+          weight_kg: number | null
+        }
+        Insert: {
+          age?: number | null
+          created_at?: string
+          fasting_hours?: number | null
+          goal?: string | null
+          height_cm?: number | null
+          id: string
+          intensity?: string | null
+          name?: string | null
+          photo_url?: string | null
+          sex?: string | null
+          target_fat_kg?: number | null
+          updated_at?: string
+          weight_kg?: number | null
+        }
+        Update: {
+          age?: number | null
+          created_at?: string
+          fasting_hours?: number | null
+          goal?: string | null
+          height_cm?: number | null
+          id?: string
+          intensity?: string | null
+          name?: string | null
+          photo_url?: string | null
+          sex?: string | null
+          target_fat_kg?: number | null
+          updated_at?: string
+          weight_kg?: number | null
         }
         Relationships: []
       }
