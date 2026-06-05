@@ -6,6 +6,8 @@ import { invokeFn } from "@/lib/api";
 import coachNova from "@/assets/coach-nova.jpg";
 import { ProfileGate } from "@/components/ProfileGate";
 import { Profile, loadProfile, ageGroup, dietChart, weeklyPlan } from "@/lib/profile";
+import { cloudLoadProfile } from "@/lib/cloudSync";
+import { useSession } from "@/hooks/useSession";
 
 type Exercise = {
   id: string;
@@ -56,6 +58,17 @@ export const AIMirror = () => {
   const [camOn, setCamOn] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(loadProfile());
   const [showProfile, setShowProfile] = useState(false);
+  const { user } = useSession();
+  useEffect(() => {
+    if (!user) return;
+    if (profile) return;
+    cloudLoadProfile().then((p) => {
+      if (p) {
+        localStorage.setItem("nb.profile.v1", JSON.stringify(p));
+        setProfile(p);
+      }
+    }).catch(() => { /* ignore */ });
+  }, [user?.id]); // eslint-disable-line
   const [category, setCategory] = useState<Exercise["category"]>("fat-loss");
   const [exercise, setExercise] = useState<Exercise>(EXERCISES[0]);
   const [training, setTraining] = useState(false);

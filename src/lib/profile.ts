@@ -1,4 +1,5 @@
 import { tdee } from "@/lib/api";
+import { cloudSaveProfile } from "@/lib/cloudSync";
 
 export type Goal = "fat-loss" | "muscle" | "endurance" | "flexibility" | "rehab" | "general";
 export type Intensity = "rapid" | "moderate" | "slow";
@@ -26,7 +27,11 @@ export const loadProfile = (): Profile | null => {
   } catch { return null; }
 };
 
-export const saveProfile = (p: Profile) => localStorage.setItem(KEY, JSON.stringify(p));
+export const saveProfile = (p: Profile) => {
+  localStorage.setItem(KEY, JSON.stringify(p));
+  // Write-through to cloud when signed in (fire-and-forget).
+  void cloudSaveProfile(p).catch(() => { /* offline / not authed — no-op */ });
+};
 export const clearProfile = () => localStorage.removeItem(KEY);
 
 export const ageGroup = (age: number): "youth" | "adult" | "midlife" | "senior" =>

@@ -1,6 +1,10 @@
-import { Brain, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { Brain, Menu, X, LogIn, LogOut, User } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Link, useNavigate } from "react-router-dom";
+import { useSession, signOut } from "@/hooks/useSession";
+import { migrateLocalToCloud } from "@/lib/cloudSync";
+import { toast } from "sonner";
 
 const links = [
   { label: "Recognition", target: "recognition" },
@@ -20,6 +24,12 @@ const scrollTo = (id: string) => {
 
 export const Navbar = () => {
   const [open, setOpen] = useState(false);
+  const { user } = useSession();
+  const nav = useNavigate();
+  useEffect(() => {
+    if (user) { void migrateLocalToCloud(); }
+  }, [user?.id]);
+  const handleSignOut = async () => { await signOut(); toast.success("Signed out"); nav("/"); };
   const go = (id: string) => { setOpen(false); scrollTo(id); };
   return (
     <header className="fixed top-0 inset-x-0 z-50">
@@ -44,6 +54,14 @@ export const Navbar = () => {
             ))}
           </div>
           <div className="flex items-center gap-2">
+            {user ? (
+              <>
+                <span className="hidden md:inline-flex items-center gap-1 text-xs text-muted-foreground"><User className="h-3 w-3" />{user.email}</span>
+                <Button onClick={handleSignOut} size="sm" variant="outline"><LogOut className="h-3 w-3 mr-1" />Sign out</Button>
+              </>
+            ) : (
+              <Button asChild size="sm" variant="outline"><Link to="/auth"><LogIn className="h-3 w-3 mr-1" />Sign in</Link></Button>
+            )}
             <Button
               onClick={() => go("recognition")}
               size="sm"

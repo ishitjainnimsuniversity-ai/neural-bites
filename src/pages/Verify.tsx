@@ -1,14 +1,29 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { getCertificate } from "@/lib/academy";
+import { getCertificate, type Certificate } from "@/lib/academy";
+import { cloudGetCertificate } from "@/lib/cloudSync";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, ShieldX } from "lucide-react";
+import { ShieldCheck, ShieldX, Loader2 } from "lucide-react";
 
 export default function Verify() {
   const { serial } = useParams();
   const [q, setQ] = useState(serial ?? "");
-  const cert = q ? getCertificate(q.trim()) : null;
+  const [cert, setCert] = useState<Certificate | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
+
+  const lookup = async (s: string) => {
+    const t = s.trim();
+    if (!t) { setCert(null); setSearched(false); return; }
+    setLoading(true); setSearched(true);
+    const remote = await cloudGetCertificate(t).catch(() => null);
+    setCert(remote ?? getCertificate(t) ?? null);
+    setLoading(false);
+  };
+
+  useEffect(() => { if (serial) lookup(serial); }, [serial]);
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
       <div className="max-w-xl w-full glass-strong rounded-3xl border-glow p-8">
@@ -16,9 +31,11 @@ export default function Verify() {
         <p className="text-sm text-muted-foreground mb-4">Enter the serial printed on the certificate.</p>
         <div className="flex gap-2">
           <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="NB-CRASH-XXXX..." />
-          <Button onClick={() => setQ(q.trim())} className="bg-gradient-neural">Verify</Button>
+          <Button onClick={() => lookup(q)} className="bg-gradient-neural" disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
+          </Button>
         </div>
-        {q && (
+        {searched && !loading && (
           cert ? (
             <div className="mt-5 p-4 rounded-2xl border border-neon/50 bg-neon/5">
               <div className="flex items-center gap-2 text-neon font-semibold"><ShieldCheck className="h-4 w-4" /> Valid certificate</div>
@@ -28,7 +45,7 @@ export default function Verify() {
             </div>
           ) : (
             <div className="mt-5 p-4 rounded-2xl border border-destructive/50 bg-destructive/5 flex items-center gap-2 text-destructive">
-              <ShieldX className="h-4 w-4" /> No certificate found for this serial on this device.
+              <ShieldX className="h-4 w-4" /> No certificate found for this serial.
             </div>
           )
         )}
