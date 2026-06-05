@@ -1,4 +1,5 @@
 export type Track = "crash" | "bachelor" | "master";
+import { cloudSaveProgress, cloudIssueCertificate, cloudRecordExam } from "@/lib/cloudSync";
 
 export type Module = {
   id: string;
@@ -42,16 +43,16 @@ const CRASH: Course = {
   description: "Ten tight modules covering anatomy, exercise science, yoga, nutrition, psychology, basic medicine, lifestyle, coaching, yoga therapy and career.",
   hours: 2, free: true,
   modules: [
-    { id: "m1",  title: "Human Anatomy for Fitness & Yoga",     videoId: "MkRUFFcv9C0", durationSec: 900 },
-    { id: "m2",  title: "Exercise Science (FITT, PO, training)", videoId: "9OkrLfTfRrI", durationSec: 900 },
-    { id: "m3",  title: "Yoga Foundations (4 pillars, pranayama)", videoId: "OB1HhqNbcsE", durationSec: 900 },
+    { id: "m1",  title: "Human Anatomy for Fitness & Yoga",     videoId: "VVL-8zr2hk4", durationSec: 900 },
+    { id: "m2",  title: "Exercise Science (FITT, PO, training)", videoId: "2tM1LFFxeKg", durationSec: 900 },
+    { id: "m3",  title: "Yoga Foundations (4 pillars, pranayama)", videoId: "_8kV4FHSdNA", durationSec: 900 },
     { id: "m4",  title: "Nutrition & Dietetics",                 videoId: "fqhYBTg73fw", durationSec: 900 },
-    { id: "m5",  title: "Psychology of Fitness & Habits",        videoId: "PT_FUtgKZ4M", durationSec: 600 },
-    { id: "m6",  title: "Basic Medicine for Trainers",           videoId: "fzGnE7g9NgU", durationSec: 900 },
-    { id: "m7",  title: "Lifestyle Medicine (6 pillars)",        videoId: "eUPrItoZ7Eg", durationSec: 600 },
+    { id: "m5",  title: "Psychology of Fitness & Habits",        videoId: "-moW9jvvMr4", durationSec: 600 },
+    { id: "m6",  title: "Basic Medicine for Trainers",           videoId: "3_PYnWVoUzM", durationSec: 900 },
+    { id: "m7",  title: "Lifestyle Medicine (6 pillars)",        videoId: "xyQY8a-ng6g", durationSec: 600 },
     { id: "m8",  title: "Coaching & Communication (SMART)",      videoId: "1-SvuFIQjK8", durationSec: 600 },
     { id: "m9",  title: "Yoga Therapy Basics",                   videoId: "g_tea8ZNk5A", durationSec: 600 },
-    { id: "m10", title: "Career Roadmap & Certifications",       videoId: "1Yz1KFwxk5g", durationSec: 600 },
+    { id: "m10", title: "Career Roadmap & Certifications",       videoId: "X7j8F16eSqs", durationSec: 600 },
   ],
   exams: [
     { id: "final", title: "Crash Course Final", cadence: "yearly", negative: 0.25, passPct: 60, questions: [
@@ -72,12 +73,12 @@ const BSC_YOGA: Course = {
   description: "1000-hour-style program: asana, pranayama, meditation, Ayurveda foundations, anatomy and teaching practicum.",
   hours: 1000, free: true,
   modules: [
-    { id: "y1", title: "Foundations of Yoga & Philosophy", videoId: "OB1HhqNbcsE", durationSec: 1800 },
+    { id: "y1", title: "Foundations of Yoga & Philosophy", videoId: "_8kV4FHSdNA", durationSec: 1800 },
     { id: "y2", title: "Asana Lab I",                      videoId: "v7AYKMP6rOE", durationSec: 1800 },
     { id: "y3", title: "Pranayama & Breathwork",           videoId: "8VwufJrUhic", durationSec: 1500 },
     { id: "y4", title: "Meditation & Mindfulness",         videoId: "inpok4MKVLM", durationSec: 1500 },
-    { id: "y5", title: "Ayurveda Fundamentals",            videoId: "9hRramfNk_M", durationSec: 1800 },
-    { id: "y6", title: "Anatomy for Yoga",                 videoId: "MkRUFFcv9C0", durationSec: 1800 },
+    { id: "y5", title: "Ayurveda Fundamentals",            videoId: "axD_jMprNLY", durationSec: 1800 },
+    { id: "y6", title: "Anatomy for Yoga",                 videoId: "VVL-8zr2hk4", durationSec: 1800 },
     { id: "y7", title: "Teaching Methodology Practicum",   videoId: "GLy2rYHwUqY", durationSec: 1800 },
   ],
   exams: [
@@ -101,12 +102,12 @@ const BSC_FIT: Course = {
   description: "120-credit-hour-style program: exercise science, nutrition, stress management, behavior change and health coaching.",
   hours: 1200, free: true,
   modules: [
-    { id: "f1", title: "Foundations of Exercise Science",   videoId: "9OkrLfTfRrI", durationSec: 1800 },
+    { id: "f1", title: "Foundations of Exercise Science",   videoId: "2tM1LFFxeKg", durationSec: 1800 },
     { id: "f2", title: "Nutrition for Health & Performance",videoId: "fqhYBTg73fw", durationSec: 1800 },
-    { id: "f3", title: "Behavior Change & Health Coaching", videoId: "PT_FUtgKZ4M", durationSec: 1500 },
+    { id: "f3", title: "Behavior Change & Health Coaching", videoId: "-moW9jvvMr4", durationSec: 1500 },
     { id: "f4", title: "Programming for Fat Loss",          videoId: "ml6cT4AZdqI", durationSec: 1500 },
     { id: "f5", title: "Strength & Hypertrophy",            videoId: "2tM1LFFxeKg", durationSec: 1800 },
-    { id: "f6", title: "Cardiometabolic Health",            videoId: "eUPrItoZ7Eg", durationSec: 1500 },
+    { id: "f6", title: "Cardiometabolic Health",            videoId: "3_PYnWVoUzM", durationSec: 1500 },
     { id: "f7", title: "Stress, Sleep & Recovery",          videoId: "aXItOY0sLRY", durationSec: 1500 },
   ],
   exams: [
@@ -127,7 +128,7 @@ const MSC_YOGA: Course = {
   modules: [
     { id: "yy1", title: "Yoga Therapy Foundations",   videoId: "g_tea8ZNk5A", durationSec: 1800 },
     { id: "yy2", title: "Research Methods in Yoga",   videoId: "Y8Tko2YC5hA", durationSec: 1800 },
-    { id: "yy3", title: "Philosophy of Yoga Sutras",  videoId: "OB1HhqNbcsE", durationSec: 1800 },
+    { id: "yy3", title: "Philosophy of Yoga Sutras",  videoId: "_8kV4FHSdNA", durationSec: 1800 },
     { id: "yy4", title: "Therapeutic Practicum",      videoId: "GLy2rYHwUqY", durationSec: 1800 },
   ],
   exams: [
@@ -144,8 +145,8 @@ const MSC_HEALTH: Course = {
   description: "36-credit-style MSc: health coaching, lifestyle medicine, behavior change, healthy aging.",
   hours: 800, free: true,
   modules: [
-    { id: "ih1", title: "Whole-Person Wellness",       videoId: "eUPrItoZ7Eg", durationSec: 1800 },
-    { id: "ih2", title: "Lifestyle Medicine",          videoId: "PT_FUtgKZ4M", durationSec: 1500 },
+    { id: "ih1", title: "Whole-Person Wellness",       videoId: "xyQY8a-ng6g", durationSec: 1800 },
+    { id: "ih2", title: "Lifestyle Medicine",          videoId: "-moW9jvvMr4", durationSec: 1500 },
     { id: "ih3", title: "Coaching Skills (NBHWC)",     videoId: "1-SvuFIQjK8", durationSec: 1500 },
     { id: "ih4", title: "Healthy Aging",               videoId: "aXItOY0sLRY", durationSec: 1500 },
   ],
@@ -163,8 +164,8 @@ const MSC_EX: Course = {
   description: "18-month-style MSc: exercise science, metabolic health, mind-body wellness; preps NASM/ACSM-style credentials.",
   hours: 900, free: true,
   modules: [
-    { id: "es1", title: "Advanced Exercise Physiology", videoId: "9OkrLfTfRrI", durationSec: 1800 },
-    { id: "es2", title: "Metabolic Health",             videoId: "eUPrItoZ7Eg", durationSec: 1500 },
+    { id: "es1", title: "Advanced Exercise Physiology", videoId: "2tM1LFFxeKg", durationSec: 1800 },
+    { id: "es2", title: "Metabolic Health",             videoId: "xyQY8a-ng6g", durationSec: 1500 },
     { id: "es3", title: "Mind-Body Wellness",           videoId: "inpok4MKVLM", durationSec: 1500 },
     { id: "es4", title: "Program Design Capstone",      videoId: "ml6cT4AZdqI", durationSec: 1800 },
   ],
@@ -212,6 +213,12 @@ export const enroll = (id: string): Progress => {
 export const saveProgress = (p: Progress) => {
   p.lastActiveAt = new Date().toISOString();
   localStorage.setItem(KEY(id_of(p)), JSON.stringify(p));
+  void cloudSaveProgress(p).catch(() => { /* offline / not authed */ });
+};
+
+/** Record an exam attempt to local + cloud. */
+export const recordExamAttempt = (courseId: string, examId: string, score: number, passed: boolean) => {
+  void cloudRecordExam(courseId, examId, score, passed).catch(() => { /* offline */ });
 };
 const id_of = (p: Progress) => p.courseId;
 
@@ -237,6 +244,7 @@ export const issueCertificate = (course: Course, userName: string): Certificate 
   const cert: Certificate = { serial, courseId: course.id, courseTitle: course.title, userName, issuedAt: new Date().toISOString() };
   all.push(cert);
   localStorage.setItem(CERT_KEY, JSON.stringify(all));
+  void cloudIssueCertificate(cert).catch(() => { /* offline / not authed */ });
   return cert;
 };
 
