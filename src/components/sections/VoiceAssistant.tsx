@@ -15,13 +15,53 @@ export const VoiceAssistant = () => {
   const [typed, setTyped] = useState("");
   const [micError, setMicError] = useState<string>("");
   const [permState, setPermState] = useState<"unknown" | "prompt" | "granted" | "denied">("unknown");
+  const [level, setLevel] = useState(0);
   const recRef = useRef<SR | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const SRClass = typeof window !== "undefined" && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
   const supported = !!SRClass;
   const isSecure = typeof window !== "undefined" && (window.isSecureContext || location.hostname === "localhost");
 
-  useEffect(() => () => { try { recRef.current?.stop?.(); } catch {} }, []);
+  const stopMeter = () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    try { streamRef.current?.getTracks().forEach((t) => t.stop()); } catch {}
+    streamRef.current = null;
+    try { audioCtxRef.current?.close(); } catch {}
+    audioCtxRef.current = null;
+    analyserRef.current = null;
+    setLevel(0);
+  };
+
+  const startMeter = (stream: MediaStream) => {
+    try {
+      const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (!Ctx) return;
+      const ctx = new Ctx();
+      const src = ctx.createMediaStreamSource(stream);
+      const an = ctx.createAnalyser();
+      an.fftSize = 512;
+      src.connect(an);
+      audioCtxRef.current = ctx;
+      analyserRef.current = an;
+      const data = new Uint8Array(an.frequencyBinCount);
+      const loop = () => {
+        an.getByteTimeDomainData(data);
+        let sum = 0;
+        for (let i = 0; i < data.length; i++) { const v = (data[i] - 128) / 128; sum += v * v; }
+        const rms = Math.sqrt(sum / data.length);
+        setLevel(Math.min(1, rms * 3));
+        rafRef.current = requestAnimationFrame(loop);
+      };
+      loop();
+    } catch { /* ignore meter failures */ }
+  };
+
+  useEffect(() => () => { try { recRef.current?.stop?.(); } catch {} stopMeter(); }, []);
 
   const refreshPerm = async () => {
     try {
@@ -62,14 +102,14 @@ export const VoiceAssistant = () => {
       const m = "Speech recognition isn't supported here. Use Chrome/Edge, or type your question below.";
       setMicError(m); toast.error(m); return;
     }
-    if (listening) { try { recRef.current?.stop(); } catch {} setListening(false); return; }
+    if (listening) { try { recRef.current?.stop(); } catch {} stopMeter(); setListening(false); return; }
 
     // Explicitly request mic permission first — surfaces the prompt and clear errors.
     try {
       if (navigator.mediaDevices?.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        // We don't need the stream itself; SpeechRecognition opens its own.
-        stream.getTracks().forEach((t) => t.stop());
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+        streamRef.current = stream;
+        startMeter(stream);
         setPermState("granted");
       }
     } catch (err: any) {
@@ -89,10 +129,10 @@ export const VoiceAssistant = () => {
       r.onresult = (e: any) => {
         const t = Array.from(e.results).map((res: any) => res[0].transcript).join("");
         setTranscript(t);
-        if (e.results[e.results.length - 1].isFinal) { setListening(false); try { r.stop(); } catch {}; ask(t); }
+        if (e.results[e.results.length - 1].isFinal) { setListening(false); try { r.stop(); } catch {}; stopMeter(); ask(t); }
       };
       r.onerror = (e: any) => {
-        setListening(false);
+        setListening(false); stopMeter();
         const code = e?.error || "";
         if (code === "not-allowed" || code === "service-not-allowed") setPermState("denied");
         const m =
@@ -107,13 +147,13 @@ export const VoiceAssistant = () => {
             : `Mic error: ${code || "unknown"}`;
         setMicError(m); toast.error(m);
       };
-      r.onend = () => setListening(false);
+      r.onend = () => { setListening(false); stopMeter(); };
       recRef.current = r;
       setTranscript(""); setAnswer("");
       r.start();
       setListening(true);
     } catch (err: any) {
-      setListening(false);
+      setListening(false); stopMeter();
       const m = err?.message || "Could not start microphone.";
       setMicError(m); toast.error(m);
     }
@@ -175,6 +215,11 @@ export const VoiceAssistant = () => {
             <div className="font-mono text-xs uppercase tracking-widest text-muted-foreground mt-6">
               {listening ? "Listening…" : loading ? "Thinking…" : "Tap to speak"}
             </div>
+            {listening && (
+              <div className="mt-3 mx-auto h-1.5 w-40 rounded-full bg-muted overflow-hidden" aria-hidden>
+                <div className="h-full bg-gradient-neural transition-[width] duration-75" style={{ width: `${Math.round(level * 100)}%` }} />
+              </div>
+            )}
             {micError && (
               <div className="text-xs text-destructive mt-3">{micError}</div>
             )}
