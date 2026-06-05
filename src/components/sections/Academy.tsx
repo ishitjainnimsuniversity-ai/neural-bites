@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { GraduationCap, PlayCircle, ShieldCheck, Lock, Award, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
-import { COURSES, Course, enroll, loadProgress, saveProgress, moduleComplete, courseComplete, issueCertificate, Certificate } from "@/lib/academy";
+import { COURSES, Course, enroll, loadProgress, saveProgress, moduleComplete, courseComplete, issueCertificate, recordExamAttempt, Certificate } from "@/lib/academy";
 import { Link } from "react-router-dom";
 
 const TrackColumn = ({ track, title, blurb, onOpen }: { track: "crash"|"bachelor"|"master"; title: string; blurb: string; onOpen: (c: Course) => void }) => {
@@ -59,6 +59,7 @@ const CourseDialog = ({ course, onClose }: { course: Course; onClose: () => void
     const cur = loadProgress(course.id)!;
     cur.examScores[examId] = { score: +pct.toFixed(1), passed, at: new Date().toISOString() };
     saveProgress(cur);
+    recordExamAttempt(course.id, examId, +pct.toFixed(1), passed);
     setExamOpen(null); setAnswers({});
     toast[passed ? "success" : "error"](`${exam.title}: ${pct.toFixed(1)}% — ${passed ? "Passed" : "Failed"}`);
     refresh();
