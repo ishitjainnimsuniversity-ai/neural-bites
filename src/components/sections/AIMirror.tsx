@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, CameraOff, Loader2, Play, Square, Volume2, VolumeX, Flame, AlertCircle, RefreshCcw, User, Activity, Heart, UserCog } from "lucide-react";
+import { Camera, CameraOff, Loader2, Play, Square, Volume2, VolumeX, Flame, AlertCircle, RefreshCcw, User, Activity, Heart, UserCog, Pause, Trash2, FileDown, ShieldCheck, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { invokeFn } from "@/lib/api";
 import coachNova from "@/assets/coach-nova.jpg";
@@ -8,6 +8,8 @@ import { ProfileGate } from "@/components/ProfileGate";
 import { Profile, loadProfile, ageGroup, dietChart, weeklyPlan } from "@/lib/profile";
 import { cloudLoadProfile } from "@/lib/cloudSync";
 import { useSession } from "@/hooks/useSession";
+import { saveSession, loadSessions, dailyKcalSeries, sessionTotals, clearSessions } from "@/lib/sessionHistory";
+import { downloadDietPdf } from "@/lib/dietPdf";
 
 type Exercise = {
   id: string;
@@ -80,6 +82,14 @@ export const AIMirror = () => {
   const [speaking, setSpeaking] = useState(false);
   const [activity, setActivity] = useState({ upper: 0, core: 0, lower: 0, total: 0 });
   const [heartZone, setHeartZone] = useState(1);
+  const [paused, setPaused] = useState(false);
+  const [lastSnapshot, setLastSnapshot] = useState<string | null>(null);
+  const [showSnapshot, setShowSnapshot] = useState(false);
+  const [calibrated, setCalibrated] = useState<boolean>(() => localStorage.getItem("nb.calibrated.v1") === "1");
+  const [calibStatus, setCalibStatus] = useState<{ light: number; ok: boolean; note: string } | null>(null);
+  const [zonePeak, setZonePeakState] = useState(1);
+  const [historyTick, setHistoryTick] = useState(0);
+  const refreshHistory = () => setHistoryTick((t) => t + 1);
 
   const filtered = EXERCISES.filter((ex) => {
     if (ex.category !== category) return false;
@@ -187,18 +197,26 @@ export const AIMirror = () => {
       for (let x = 0; x < W; x++) {
         const i = (y * W + x) * 4;
         const d = Math.abs(cur.data[i] - prev.data[i]) + Math.abs(cur.data[i+1] - prev.data[i+1]) + Math.abs(cur.data[i+2] - prev.data[i+2]);
-        if (d > 45) {
+        if (d > 38) {
           if (y < third) upper++;
           else if (y < third * 2) core++;
           else lower++;
         }
       }
     }
-    const norm = (n: number) => Math.min(100, Math.round((n / (W * third)) * 400));
+    const norm = (n: number) => Math.min(100, Math.round((n / (W * third)) * 450));
     const u = norm(upper), c1 = norm(core), l = norm(lower);
     const total = Math.round((u + c1 + l) / 3);
-    setActivity({ upper: u, core: c1, lower: l, total });
-    setHeartZone(total > 75 ? 5 : total > 55 ? 4 : total > 35 ? 3 : total > 15 ? 2 : 1);
+    // Smoothing
+    setActivity((prev) => ({
+      upper: Math.round(prev.upper * 0.6 + u * 0.4),
+      core:  Math.round(prev.core  * 0.6 + c1 * 0.4),
+      lower: Math.round(prev.lower * 0.6 + l * 0.4),
+      total: Math.round(prev.total * 0.6 + total * 0.4),
+    }));
+    const z = total > 75 ? 5 : total > 55 ? 4 : total > 35 ? 3 : total > 15 ? 2 : 1;
+    setHeartZone(z);
+    setZonePeakState((p) => Math.max(p, z));
     const now = Date.now();
     if (total > 40 && now - repCooldown.current > exercise.tempoSec * 1000 * 0.7) {
       repCooldown.current = now;
@@ -207,23 +225,61 @@ export const AIMirror = () => {
   };
 
   const askCoach = async (phase: string) => {
+    if (paused) return;
     setThinking(true);
     try {
       const image = captureFrame();
+      if (image) setLastSnapshot(image);
       const r = await invokeFn<{ answer: string }>("ai-coach", {
         exercise: exercise.name, image, phase,
         profile: profile ? { name: profile.name, age: profile.age, goal: profile.goal, intensity: profile.intensity } : undefined,
       });
-      setCoachMsg(r.answer); speak(r.answer);
+      const who = profile?.name?.split(" ")[0];
+      const personalised = who && !r.answer.toLowerCase().includes(who.toLowerCase()) && phase === "intro"
+        ? `${who}, ${r.answer}` : r.answer;
+      setCoachMsg(personalised); speak(personalised);
     } catch {
       setCoachMsg(exercise.cue); speak(exercise.cue);
     } finally { setThinking(false); }
   };
 
+  /** One-time calibration: brightness average from a single frame. */
+  const runCalibration = async () => {
+    if (!camOn) { const ok = await startCamera(); if (!ok) return; }
+    setTimeout(() => {
+      const v = videoRef.current, c = motionRef.current;
+      if (!v || !c || !v.videoWidth) return;
+      const W = 96, H = Math.round(96 * (v.videoHeight / v.videoWidth));
+      c.width = W; c.height = H;
+      const ctx = c.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
+      ctx.drawImage(v, 0, 0, W, H);
+      const img = ctx.getImageData(0, 0, W, H);
+      let lum = 0;
+      for (let i = 0; i < img.data.length; i += 4) {
+        lum += 0.299 * img.data[i] + 0.587 * img.data[i+1] + 0.114 * img.data[i+2];
+      }
+      const avg = lum / (img.data.length / 4);
+      const ok = avg > 55 && avg < 220;
+      const note = avg < 55 ? "Too dark — add a light in front of you." :
+                   avg > 220 ? "Too bright — reduce backlight (move away from window)." :
+                   "Lighting & framing look good. Step back so your hips and knees are in frame.";
+      setCalibStatus({ light: Math.round(avg), ok, note });
+      if (ok) {
+        localStorage.setItem("nb.calibrated.v1", "1");
+        setCalibrated(true);
+        toast.success("Calibration passed");
+      } else {
+        toast.error("Calibration needs adjustment");
+      }
+    }, 600);
+  };
+
   const startTraining = async () => {
     if (!profile) { setShowProfile(true); toast.message("Save your profile first."); return; }
     if (!camOn) { const ok = await startCamera(); if (!ok) return; }
-    setSeconds(0); setReps(0); setTraining(true); prevFrameRef.current = null;
+    if (!calibrated) { toast.message("Run a quick camera calibration first."); await runCalibration(); return; }
+    setSeconds(0); setReps(0); setZonePeakState(1); setTraining(true); prevFrameRef.current = null;
     askCoach("intro");
     tickTimer.current = window.setInterval(() => setSeconds((s) => s + 1), 1000);
     motionTimer.current = window.setInterval(sampleMotion, 250);
@@ -238,6 +294,13 @@ export const AIMirror = () => {
     const who = profile?.name?.split(" ")[0] ?? "champ";
     const summary = `Great work ${who} — ${Math.round(reps)} reps of ${exercise.name} in ${seconds}s. About ${kcal.toFixed(1)} kcal burned. Hydrate and breathe.`;
     setCoachMsg(summary); speak(summary);
+    saveSession({
+      at: new Date().toISOString(),
+      exercise: exercise.name,
+      reps: Math.round(reps), kcal: +kcal.toFixed(1),
+      seconds, zonePeak,
+    });
+    refreshHistory();
   };
 
   const kcal = (exercise.kcalPerMin * seconds) / 60;
@@ -255,6 +318,18 @@ export const AIMirror = () => {
         </div>
 
         <ProfileGate open={showProfile} onClose={(p) => { setShowProfile(false); if (p) setProfile(p); }} />
+
+        {/* Calibration banner */}
+        {camOn && (
+          <div className={`glass rounded-2xl p-3 mb-4 flex items-center gap-3 border ${calibrated ? "border-neon/30" : "border-cyan/40"}`}>
+            <ShieldCheck className={`h-5 w-5 ${calibrated ? "text-neon" : "text-cyan"} shrink-0`} />
+            <div className="flex-1 text-xs">
+              <div className="font-semibold">{calibrated ? "Camera calibrated" : "Quick calibration recommended"}</div>
+              <div className="text-muted-foreground">{calibStatus?.note ?? "One-time check for lighting & framing accuracy."}</div>
+            </div>
+            <Button size="sm" variant="outline" onClick={runCalibration}>Run check</Button>
+          </div>
+        )}
 
         {(perm === "denied" || permError) && (
           <div className="glass rounded-2xl border border-destructive/50 p-4 mb-6 flex items-start gap-3">
@@ -295,6 +370,9 @@ export const AIMirror = () => {
               <div className="flex gap-2">
                 <Button size="sm" variant="ghost" onClick={() => setMuted((m) => !m)} aria-label="Toggle voice">
                   {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4 text-neon" />}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => { setPaused((p) => !p); toast.message(paused ? "AI snapshots resumed" : "AI snapshots paused"); }} aria-label="Pause AI">
+                  {paused ? <Play className="h-4 w-4 text-cyan" /> : <Pause className="h-4 w-4" />}
                 </Button>
                 {camOn
                   ? <Button size="sm" variant="outline" onClick={stopCamera}><CameraOff className="h-4 w-4 mr-2" />Stop cam</Button>
@@ -345,6 +423,32 @@ export const AIMirror = () => {
                   <Heart className="h-3 w-3 text-destructive" /> Zone {heartZone}/5 <span className="opacity-60">(est.)</span>
                 </div>
               )}
+              {training && (() => {
+                // Form overlay: detect imbalance vs expected exercise zones.
+                let hint = "";
+                const { upper, core, lower } = activity;
+                if (exercise.category === "muscle" && /squat|lunge|step/i.test(exercise.name) && lower < 25) hint = "Drive deeper through your legs — drop the hips.";
+                else if (/push|plank/i.test(exercise.name) && core < 20) hint = "Brace core — ribs down, glutes squeezed.";
+                else if (exercise.category === "fat-loss" && upper < 15 && lower < 15) hint = "Need more movement — pick up the pace.";
+                else if (upper > 70 && lower < 10 && exercise.category !== "flexibility") hint = "Engage your legs — don't rely on arms only.";
+                if (!hint) return null;
+                return (
+                  <div className="absolute inset-x-3 bottom-24 pointer-events-none">
+                    <div className="mx-auto max-w-md glass border border-destructive/40 rounded-xl px-3 py-2 text-xs flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                      <span><span className="font-mono text-destructive uppercase mr-1">Form</span>{hint}</span>
+                    </div>
+                    <svg viewBox="0 0 200 120" className="mx-auto mt-2 w-40 h-20 opacity-70">
+                      <circle cx="100" cy="22" r="10" fill="hsl(var(--neon))" />
+                      <line x1="100" y1="32" x2="100" y2="72" stroke="hsl(var(--neon))" strokeWidth="3" />
+                      <line x1="100" y1="42" x2="70" y2="62" stroke="hsl(var(--cyan))" strokeWidth="3" />
+                      <line x1="100" y1="42" x2="130" y2="62" stroke="hsl(var(--cyan))" strokeWidth="3" />
+                      <line x1="100" y1="72" x2="78" y2="105" stroke="hsl(var(--destructive))" strokeWidth="3" />
+                      <line x1="100" y1="72" x2="122" y2="105" stroke="hsl(var(--destructive))" strokeWidth="3" />
+                    </svg>
+                  </div>
+                );
+              })()}
               <canvas ref={canvasRef} className="hidden" />
               <canvas ref={motionRef} className="hidden" />
             </div>
@@ -416,6 +520,85 @@ export const AIMirror = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {profile && (
+          <div className="grid lg:grid-cols-3 gap-6 mt-8" key={historyTick}>
+            {/* Trends */}
+            {(() => {
+              const totals = sessionTotals();
+              const series = dailyKcalSeries(7);
+              const max = Math.max(1, ...series.map((s) => s.kcal));
+              return (
+                <div className="glass-strong rounded-3xl p-5 border-glow">
+                  <div className="flex items-center gap-2 mb-3"><Activity className="h-4 w-4 text-neon" /><div className="font-mono text-xs uppercase tracking-widest text-neon">// Session history</div></div>
+                  <div className="grid grid-cols-3 gap-2 text-center mb-3">
+                    <div className="glass rounded-xl p-2"><div className="text-[10px] font-mono uppercase text-muted-foreground">Today</div><div className="text-lg font-bold text-gradient">{Math.round(totals.today.kcal)}</div><div className="text-[10px] text-muted-foreground">kcal · {totals.today.count} sess.</div></div>
+                    <div className="glass rounded-xl p-2"><div className="text-[10px] font-mono uppercase text-muted-foreground">7-day</div><div className="text-lg font-bold text-gradient">{Math.round(totals.week.kcal)}</div><div className="text-[10px] text-muted-foreground">kcal · {totals.week.count} sess.</div></div>
+                    <div className="glass rounded-xl p-2"><div className="text-[10px] font-mono uppercase text-muted-foreground">All-time</div><div className="text-lg font-bold text-gradient">{totals.all.reps}</div><div className="text-[10px] text-muted-foreground">total reps</div></div>
+                  </div>
+                  <div className="flex items-end gap-1.5 h-24">
+                    {series.map((s, i) => (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                        <div className="w-full rounded-t bg-gradient-neural" style={{ height: `${(s.kcal / max) * 100}%` }} title={`${s.kcal} kcal`} />
+                        <div className="text-[9px] font-mono text-muted-foreground">{s.day}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Privacy */}
+            <div className="glass-strong rounded-3xl p-5 border-glow">
+              <div className="flex items-center gap-2 mb-3"><ShieldCheck className="h-4 w-4 text-neon" /><div className="font-mono text-xs uppercase tracking-widest text-neon">// Privacy controls</div></div>
+              <ul className="text-xs text-muted-foreground space-y-2 mb-3">
+                <li>• Video stays on-device. Only blurred snapshots (≤384px JPEG) leave the browser when AI is active.</li>
+                <li>• Snapshots are sent to the coach in-flight only — they are not stored on our servers.</li>
+                <li>• You can pause AI snapshots at any time, review the last frame we captured, or wipe local history.</li>
+              </ul>
+              <div className="grid grid-cols-2 gap-2">
+                <Button size="sm" variant="outline" onClick={() => setPaused((p) => !p)}>
+                  {paused ? <><Play className="h-4 w-4 mr-1" />Resume AI</> : <><Pause className="h-4 w-4 mr-1" />Pause AI</>}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setShowSnapshot(true)} disabled={!lastSnapshot}>
+                  <Eye className="h-4 w-4 mr-1" />Review last frame
+                </Button>
+                <Button size="sm" variant="outline" className="col-span-2" onClick={() => { clearSessions(); setLastSnapshot(null); refreshHistory(); toast.success("Local training history cleared"); }}>
+                  <Trash2 className="h-4 w-4 mr-1" />Delete training history
+                </Button>
+              </div>
+            </div>
+
+            {/* PDF report */}
+            <div className="glass-strong rounded-3xl p-5 border-glow flex flex-col">
+              <div className="flex items-center gap-2 mb-3"><FileDown className="h-4 w-4 text-neon" /><div className="font-mono text-xs uppercase tracking-widest text-neon">// Personal report</div></div>
+              <p className="text-xs text-muted-foreground mb-4">A printable PDF with your profile, daily kcal/macros, weekly training prescription and 7-day diet chart — issued by NeuralBites for {profile.name}.</p>
+              <div className="mt-auto">
+                <Button onClick={() => { try { downloadDietPdf(profile); toast.success("Report downloaded"); } catch (e:any) { toast.error(e.message || "Could not generate PDF"); } }} className="w-full bg-gradient-neural">
+                  <FileDown className="h-4 w-4 mr-2" />Download diet & training PDF
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Last snapshot review modal */}
+        {showSnapshot && lastSnapshot && (
+          <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur flex items-center justify-center p-4" onClick={() => setShowSnapshot(false)}>
+            <div className="glass-strong rounded-2xl p-4 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="font-mono text-xs uppercase tracking-widest text-neon">Last frame sent to coach</div>
+                <Button size="sm" variant="ghost" onClick={() => setShowSnapshot(false)}>Close</Button>
+              </div>
+              <img src={lastSnapshot} alt="Last AI snapshot" className="w-full rounded-xl border border-primary/30" />
+              <div className="flex gap-2 mt-3">
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => { setLastSnapshot(null); setShowSnapshot(false); toast.success("Snapshot discarded"); }}>
+                  <Trash2 className="h-4 w-4 mr-1" />Discard
+                </Button>
               </div>
             </div>
           </div>

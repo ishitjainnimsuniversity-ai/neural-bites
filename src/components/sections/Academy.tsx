@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { GraduationCap, PlayCircle, ShieldCheck, Lock, Award, CheckCircle2 } from "lucide-react";
+import { GraduationCap, PlayCircle, ShieldCheck, Lock, Award, CheckCircle2, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { COURSES, Course, enroll, loadProgress, saveProgress, moduleComplete, courseComplete, issueCertificate, recordExamAttempt, Certificate } from "@/lib/academy";
 import { Link } from "react-router-dom";
@@ -36,15 +36,29 @@ const TrackColumn = ({ track, title, blurb, onOpen }: { track: "crash"|"bachelor
 const CourseDialog = ({ course, onClose }: { course: Course; onClose: () => void }) => {
   const [name, setName] = useState(() => localStorage.getItem("nb.studentName") || "");
   const [tick, setTick] = useState(0);
+  const [activeModuleIdx, setActiveModuleIdx] = useState(0);
   const refresh = () => setTick((t) => t + 1);
   const p = loadProgress(course.id) ?? enroll(course.id);
   const [examOpen, setExamOpen] = useState<string | null>(null);
   const [answers, setAnswers] = useState<Record<number, number>>({});
 
-  const markWatched = (modId: string, sec: number) => {
+  const markWatched = (modId: string, sec: number, autoAdvance = false) => {
     const cur = loadProgress(course.id)!;
     cur.watched[modId] = Math.max(cur.watched[modId] ?? 0, sec);
     saveProgress(cur); refresh();
+    if (autoAdvance) {
+      const idx = course.modules.findIndex((m) => m.id === modId);
+      const next = course.modules[idx + 1];
+      if (next) {
+        setActiveModuleIdx(idx + 1);
+        setTimeout(() => {
+          document.getElementById(`mod-${next.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 80);
+        toast.success(`Next up: ${next.title}`);
+      } else {
+        toast.success("All modules complete — take the exam to unlock your certificate.");
+      }
+    }
   };
 
   const submitExam = (examId: string) => {
@@ -91,8 +105,9 @@ const CourseDialog = ({ course, onClose }: { course: Course; onClose: () => void
             const prev = idx === 0 ? true : moduleComplete(cur, course.modules[idx - 1]);
             const watched = cur.watched[m.id] ?? 0;
             const complete = moduleComplete(cur, m);
+            const isActive = idx === activeModuleIdx;
             return (
-              <div key={m.id} className={`rounded-2xl p-3 border ${complete ? "border-neon/60 bg-neon/5" : "border-primary/20"}`}>
+              <div id={`mod-${m.id}`} key={m.id} className={`rounded-2xl p-3 border ${complete ? "border-neon/60 bg-neon/5" : isActive ? "border-cyan/60" : "border-primary/20"}`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-sm font-semibold flex items-center gap-2">
                     {complete ? <CheckCircle2 className="h-4 w-4 text-neon" /> : prev ? <PlayCircle className="h-4 w-4 text-cyan" /> : <Lock className="h-4 w-4 text-muted-foreground" />}
@@ -103,14 +118,16 @@ const CourseDialog = ({ course, onClose }: { course: Course; onClose: () => void
                 {prev ? (
                   <div className="aspect-video rounded-lg overflow-hidden bg-background">
                     <iframe
-                      src={`https://www.youtube-nocookie.com/embed/${m.videoId}?modestbranding=1&rel=0`}
+                      src={`https://www.youtube-nocookie.com/embed/${m.videoId}?modestbranding=1&rel=0${isActive ? "&autoplay=1" : ""}`}
                       title={m.title}
                       allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
                       className="w-full h-full"
                     />
-                    <div className="flex gap-2 p-2">
+                    <div className="flex gap-2 p-2 flex-wrap">
                       <Button size="sm" variant="outline" onClick={() => markWatched(m.id, Math.floor(m.durationSec * 0.5))}>I've watched 50%</Button>
-                      <Button size="sm" onClick={() => markWatched(m.id, m.durationSec)} className="bg-gradient-neural">Mark complete</Button>
+                      <Button size="sm" onClick={() => markWatched(m.id, m.durationSec, true)} className="bg-gradient-neural">
+                        Mark complete & next <ArrowRight className="h-4 w-4 ml-1" />
+                      </Button>
                     </div>
                   </div>
                 ) : (
