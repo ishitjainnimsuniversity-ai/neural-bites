@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, CameraOff, Loader2, Play, Square, Volume2, VolumeX, Flame, AlertCircle, RefreshCcw, User, Activity, Heart, UserCog } from "lucide-react";
+import { Camera, CameraOff, Loader2, Play, Square, Volume2, VolumeX, Flame, AlertCircle, RefreshCcw, User, Activity, Heart, UserCog, Pause, PlayIcon, Trash2, FileDown, ShieldCheck, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { invokeFn } from "@/lib/api";
 import coachNova from "@/assets/coach-nova.jpg";
@@ -8,6 +8,8 @@ import { ProfileGate } from "@/components/ProfileGate";
 import { Profile, loadProfile, ageGroup, dietChart, weeklyPlan } from "@/lib/profile";
 import { cloudLoadProfile } from "@/lib/cloudSync";
 import { useSession } from "@/hooks/useSession";
+import { saveSession, loadSessions, dailyKcalSeries, sessionTotals, clearSessions } from "@/lib/sessionHistory";
+import { downloadDietPdf } from "@/lib/dietPdf";
 
 type Exercise = {
   id: string;
@@ -80,6 +82,14 @@ export const AIMirror = () => {
   const [speaking, setSpeaking] = useState(false);
   const [activity, setActivity] = useState({ upper: 0, core: 0, lower: 0, total: 0 });
   const [heartZone, setHeartZone] = useState(1);
+  const [paused, setPaused] = useState(false);
+  const [lastSnapshot, setLastSnapshot] = useState<string | null>(null);
+  const [showSnapshot, setShowSnapshot] = useState(false);
+  const [calibrated, setCalibrated] = useState<boolean>(() => localStorage.getItem("nb.calibrated.v1") === "1");
+  const [calibStatus, setCalibStatus] = useState<{ light: number; ok: boolean; note: string } | null>(null);
+  const [zonePeak, setZonePeakState] = useState(1);
+  const [historyTick, setHistoryTick] = useState(0);
+  const refreshHistory = () => setHistoryTick((t) => t + 1);
 
   const filtered = EXERCISES.filter((ex) => {
     if (ex.category !== category) return false;
@@ -187,18 +197,26 @@ export const AIMirror = () => {
       for (let x = 0; x < W; x++) {
         const i = (y * W + x) * 4;
         const d = Math.abs(cur.data[i] - prev.data[i]) + Math.abs(cur.data[i+1] - prev.data[i+1]) + Math.abs(cur.data[i+2] - prev.data[i+2]);
-        if (d > 45) {
+        if (d > 38) {
           if (y < third) upper++;
           else if (y < third * 2) core++;
           else lower++;
         }
       }
     }
-    const norm = (n: number) => Math.min(100, Math.round((n / (W * third)) * 400));
+    const norm = (n: number) => Math.min(100, Math.round((n / (W * third)) * 450));
     const u = norm(upper), c1 = norm(core), l = norm(lower);
     const total = Math.round((u + c1 + l) / 3);
-    setActivity({ upper: u, core: c1, lower: l, total });
-    setHeartZone(total > 75 ? 5 : total > 55 ? 4 : total > 35 ? 3 : total > 15 ? 2 : 1);
+    // Smoothing
+    setActivity((prev) => ({
+      upper: Math.round(prev.upper * 0.6 + u * 0.4),
+      core:  Math.round(prev.core  * 0.6 + c1 * 0.4),
+      lower: Math.round(prev.lower * 0.6 + l * 0.4),
+      total: Math.round(prev.total * 0.6 + total * 0.4),
+    }));
+    const z = total > 75 ? 5 : total > 55 ? 4 : total > 35 ? 3 : total > 15 ? 2 : 1;
+    setHeartZone(z);
+    setZonePeakState((p) => Math.max(p, z));
     const now = Date.now();
     if (total > 40 && now - repCooldown.current > exercise.tempoSec * 1000 * 0.7) {
       repCooldown.current = now;
@@ -207,23 +225,61 @@ export const AIMirror = () => {
   };
 
   const askCoach = async (phase: string) => {
+    if (paused) return;
     setThinking(true);
     try {
       const image = captureFrame();
+      if (image) setLastSnapshot(image);
       const r = await invokeFn<{ answer: string }>("ai-coach", {
         exercise: exercise.name, image, phase,
         profile: profile ? { name: profile.name, age: profile.age, goal: profile.goal, intensity: profile.intensity } : undefined,
       });
-      setCoachMsg(r.answer); speak(r.answer);
+      const who = profile?.name?.split(" ")[0];
+      const personalised = who && !r.answer.toLowerCase().includes(who.toLowerCase()) && phase === "intro"
+        ? `${who}, ${r.answer}` : r.answer;
+      setCoachMsg(personalised); speak(personalised);
     } catch {
       setCoachMsg(exercise.cue); speak(exercise.cue);
     } finally { setThinking(false); }
   };
 
+  /** One-time calibration: brightness average from a single frame. */
+  const runCalibration = async () => {
+    if (!camOn) { const ok = await startCamera(); if (!ok) return; }
+    setTimeout(() => {
+      const v = videoRef.current, c = motionRef.current;
+      if (!v || !c || !v.videoWidth) return;
+      const W = 96, H = Math.round(96 * (v.videoHeight / v.videoWidth));
+      c.width = W; c.height = H;
+      const ctx = c.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
+      ctx.drawImage(v, 0, 0, W, H);
+      const img = ctx.getImageData(0, 0, W, H);
+      let lum = 0;
+      for (let i = 0; i < img.data.length; i += 4) {
+        lum += 0.299 * img.data[i] + 0.587 * img.data[i+1] + 0.114 * img.data[i+2];
+      }
+      const avg = lum / (img.data.length / 4);
+      const ok = avg > 55 && avg < 220;
+      const note = avg < 55 ? "Too dark — add a light in front of you." :
+                   avg > 220 ? "Too bright — reduce backlight (move away from window)." :
+                   "Lighting & framing look good. Step back so your hips and knees are in frame.";
+      setCalibStatus({ light: Math.round(avg), ok, note });
+      if (ok) {
+        localStorage.setItem("nb.calibrated.v1", "1");
+        setCalibrated(true);
+        toast.success("Calibration passed");
+      } else {
+        toast.error("Calibration needs adjustment");
+      }
+    }, 600);
+  };
+
   const startTraining = async () => {
     if (!profile) { setShowProfile(true); toast.message("Save your profile first."); return; }
     if (!camOn) { const ok = await startCamera(); if (!ok) return; }
-    setSeconds(0); setReps(0); setTraining(true); prevFrameRef.current = null;
+    if (!calibrated) { toast.message("Run a quick camera calibration first."); await runCalibration(); return; }
+    setSeconds(0); setReps(0); setZonePeakState(1); setTraining(true); prevFrameRef.current = null;
     askCoach("intro");
     tickTimer.current = window.setInterval(() => setSeconds((s) => s + 1), 1000);
     motionTimer.current = window.setInterval(sampleMotion, 250);
@@ -238,6 +294,13 @@ export const AIMirror = () => {
     const who = profile?.name?.split(" ")[0] ?? "champ";
     const summary = `Great work ${who} — ${Math.round(reps)} reps of ${exercise.name} in ${seconds}s. About ${kcal.toFixed(1)} kcal burned. Hydrate and breathe.`;
     setCoachMsg(summary); speak(summary);
+    saveSession({
+      at: new Date().toISOString(),
+      exercise: exercise.name,
+      reps: Math.round(reps), kcal: +kcal.toFixed(1),
+      seconds, zonePeak,
+    });
+    refreshHistory();
   };
 
   const kcal = (exercise.kcalPerMin * seconds) / 60;
