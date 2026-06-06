@@ -371,6 +371,9 @@ export const AIMirror = () => {
                 <Button size="sm" variant="ghost" onClick={() => setMuted((m) => !m)} aria-label="Toggle voice">
                   {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4 text-neon" />}
                 </Button>
+                <Button size="sm" variant="ghost" onClick={() => { setPaused((p) => !p); toast.message(paused ? "AI snapshots resumed" : "AI snapshots paused"); }} aria-label="Pause AI">
+                  {paused ? <PlayIcon className="h-4 w-4 text-cyan" /> : <Pause className="h-4 w-4" />}
+                </Button>
                 {camOn
                   ? <Button size="sm" variant="outline" onClick={stopCamera}><CameraOff className="h-4 w-4 mr-2" />Stop cam</Button>
                   : <Button size="sm" onClick={startCamera} className="bg-gradient-neural"><Camera className="h-4 w-4 mr-2" />Enable camera</Button>}
@@ -517,6 +520,85 @@ export const AIMirror = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {profile && (
+          <div className="grid lg:grid-cols-3 gap-6 mt-8" key={historyTick}>
+            {/* Trends */}
+            {(() => {
+              const totals = sessionTotals();
+              const series = dailyKcalSeries(7);
+              const max = Math.max(1, ...series.map((s) => s.kcal));
+              return (
+                <div className="glass-strong rounded-3xl p-5 border-glow">
+                  <div className="flex items-center gap-2 mb-3"><Activity className="h-4 w-4 text-neon" /><div className="font-mono text-xs uppercase tracking-widest text-neon">// Session history</div></div>
+                  <div className="grid grid-cols-3 gap-2 text-center mb-3">
+                    <div className="glass rounded-xl p-2"><div className="text-[10px] font-mono uppercase text-muted-foreground">Today</div><div className="text-lg font-bold text-gradient">{Math.round(totals.today.kcal)}</div><div className="text-[10px] text-muted-foreground">kcal · {totals.today.count} sess.</div></div>
+                    <div className="glass rounded-xl p-2"><div className="text-[10px] font-mono uppercase text-muted-foreground">7-day</div><div className="text-lg font-bold text-gradient">{Math.round(totals.week.kcal)}</div><div className="text-[10px] text-muted-foreground">kcal · {totals.week.count} sess.</div></div>
+                    <div className="glass rounded-xl p-2"><div className="text-[10px] font-mono uppercase text-muted-foreground">All-time</div><div className="text-lg font-bold text-gradient">{totals.all.reps}</div><div className="text-[10px] text-muted-foreground">total reps</div></div>
+                  </div>
+                  <div className="flex items-end gap-1.5 h-24">
+                    {series.map((s, i) => (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                        <div className="w-full rounded-t bg-gradient-neural" style={{ height: `${(s.kcal / max) * 100}%` }} title={`${s.kcal} kcal`} />
+                        <div className="text-[9px] font-mono text-muted-foreground">{s.day}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Privacy */}
+            <div className="glass-strong rounded-3xl p-5 border-glow">
+              <div className="flex items-center gap-2 mb-3"><ShieldCheck className="h-4 w-4 text-neon" /><div className="font-mono text-xs uppercase tracking-widest text-neon">// Privacy controls</div></div>
+              <ul className="text-xs text-muted-foreground space-y-2 mb-3">
+                <li>• Video stays on-device. Only blurred snapshots (≤384px JPEG) leave the browser when AI is active.</li>
+                <li>• Snapshots are sent to the coach in-flight only — they are not stored on our servers.</li>
+                <li>• You can pause AI snapshots at any time, review the last frame we captured, or wipe local history.</li>
+              </ul>
+              <div className="grid grid-cols-2 gap-2">
+                <Button size="sm" variant="outline" onClick={() => setPaused((p) => !p)}>
+                  {paused ? <><PlayIcon className="h-4 w-4 mr-1" />Resume AI</> : <><Pause className="h-4 w-4 mr-1" />Pause AI</>}
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => setShowSnapshot(true)} disabled={!lastSnapshot}>
+                  <Eye className="h-4 w-4 mr-1" />Review last frame
+                </Button>
+                <Button size="sm" variant="outline" className="col-span-2" onClick={() => { clearSessions(); setLastSnapshot(null); refreshHistory(); toast.success("Local training history cleared"); }}>
+                  <Trash2 className="h-4 w-4 mr-1" />Delete training history
+                </Button>
+              </div>
+            </div>
+
+            {/* PDF report */}
+            <div className="glass-strong rounded-3xl p-5 border-glow flex flex-col">
+              <div className="flex items-center gap-2 mb-3"><FileDown className="h-4 w-4 text-neon" /><div className="font-mono text-xs uppercase tracking-widest text-neon">// Personal report</div></div>
+              <p className="text-xs text-muted-foreground mb-4">A printable PDF with your profile, daily kcal/macros, weekly training prescription and 7-day diet chart — issued by NeuralBites for {profile.name}.</p>
+              <div className="mt-auto">
+                <Button onClick={() => { try { downloadDietPdf(profile); toast.success("Report downloaded"); } catch (e:any) { toast.error(e.message || "Could not generate PDF"); } }} className="w-full bg-gradient-neural">
+                  <FileDown className="h-4 w-4 mr-2" />Download diet & training PDF
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Last snapshot review modal */}
+        {showSnapshot && lastSnapshot && (
+          <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur flex items-center justify-center p-4" onClick={() => setShowSnapshot(false)}>
+            <div className="glass-strong rounded-2xl p-4 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="font-mono text-xs uppercase tracking-widest text-neon">Last frame sent to coach</div>
+                <Button size="sm" variant="ghost" onClick={() => setShowSnapshot(false)}>Close</Button>
+              </div>
+              <img src={lastSnapshot} alt="Last AI snapshot" className="w-full rounded-xl border border-primary/30" />
+              <div className="flex gap-2 mt-3">
+                <Button size="sm" variant="outline" className="flex-1" onClick={() => { setLastSnapshot(null); setShowSnapshot(false); toast.success("Snapshot discarded"); }}>
+                  <Trash2 className="h-4 w-4 mr-1" />Discard
+                </Button>
               </div>
             </div>
           </div>
