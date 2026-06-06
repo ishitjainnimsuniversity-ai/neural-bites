@@ -1,6 +1,7 @@
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NeuralBackground } from "./NeuralBackground";
+import { MotivationTicker } from "./MotivationTicker";
 import heroImg from "@/assets/hero-neural-food.jpg";
 
 export const Hero = () => (
@@ -52,12 +53,8 @@ export const Hero = () => (
               height={1024}
               className="rounded-2xl w-full h-auto"
             />
-            <div className="absolute bottom-6 left-6 right-6 glass rounded-2xl p-4 flex items-center justify-between">
-              <div>
-                <div className="text-xs font-mono text-neon uppercase">Analyzing…</div>
-                <div className="font-display font-semibold">Heirloom Tomato · 18 kcal</div>
-              </div>
-              <div className="font-mono text-xs text-cyan">CONF 99.4%</div>
+            <div className="absolute bottom-6 left-6 right-6">
+              <MotivationTicker />
             </div>
           </div>
         </div>
