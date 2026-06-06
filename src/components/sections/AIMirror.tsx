@@ -319,6 +319,18 @@ export const AIMirror = () => {
 
         <ProfileGate open={showProfile} onClose={(p) => { setShowProfile(false); if (p) setProfile(p); }} />
 
+        {/* Calibration banner */}
+        {camOn && (
+          <div className={`glass rounded-2xl p-3 mb-4 flex items-center gap-3 border ${calibrated ? "border-neon/30" : "border-cyan/40"}`}>
+            <ShieldCheck className={`h-5 w-5 ${calibrated ? "text-neon" : "text-cyan"} shrink-0`} />
+            <div className="flex-1 text-xs">
+              <div className="font-semibold">{calibrated ? "Camera calibrated" : "Quick calibration recommended"}</div>
+              <div className="text-muted-foreground">{calibStatus?.note ?? "One-time check for lighting & framing accuracy."}</div>
+            </div>
+            <Button size="sm" variant="outline" onClick={runCalibration}>Run check</Button>
+          </div>
+        )}
+
         {(perm === "denied" || permError) && (
           <div className="glass rounded-2xl border border-destructive/50 p-4 mb-6 flex items-start gap-3">
             <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
@@ -408,6 +420,32 @@ export const AIMirror = () => {
                   <Heart className="h-3 w-3 text-destructive" /> Zone {heartZone}/5 <span className="opacity-60">(est.)</span>
                 </div>
               )}
+              {training && (() => {
+                // Form overlay: detect imbalance vs expected exercise zones.
+                let hint = "";
+                const { upper, core, lower } = activity;
+                if (exercise.category === "muscle" && /squat|lunge|step/i.test(exercise.name) && lower < 25) hint = "Drive deeper through your legs — drop the hips.";
+                else if (/push|plank/i.test(exercise.name) && core < 20) hint = "Brace core — ribs down, glutes squeezed.";
+                else if (exercise.category === "fat-loss" && upper < 15 && lower < 15) hint = "Need more movement — pick up the pace.";
+                else if (upper > 70 && lower < 10 && exercise.category !== "flexibility") hint = "Engage your legs — don't rely on arms only.";
+                if (!hint) return null;
+                return (
+                  <div className="absolute inset-x-3 bottom-24 pointer-events-none">
+                    <div className="mx-auto max-w-md glass border border-destructive/40 rounded-xl px-3 py-2 text-xs flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-destructive shrink-0" />
+                      <span><span className="font-mono text-destructive uppercase mr-1">Form</span>{hint}</span>
+                    </div>
+                    <svg viewBox="0 0 200 120" className="mx-auto mt-2 w-40 h-20 opacity-70">
+                      <circle cx="100" cy="22" r="10" fill="hsl(var(--neon))" />
+                      <line x1="100" y1="32" x2="100" y2="72" stroke="hsl(var(--neon))" strokeWidth="3" />
+                      <line x1="100" y1="42" x2="70" y2="62" stroke="hsl(var(--cyan))" strokeWidth="3" />
+                      <line x1="100" y1="42" x2="130" y2="62" stroke="hsl(var(--cyan))" strokeWidth="3" />
+                      <line x1="100" y1="72" x2="78" y2="105" stroke="hsl(var(--destructive))" strokeWidth="3" />
+                      <line x1="100" y1="72" x2="122" y2="105" stroke="hsl(var(--destructive))" strokeWidth="3" />
+                    </svg>
+                  </div>
+                );
+              })()}
               <canvas ref={canvasRef} className="hidden" />
               <canvas ref={motionRef} className="hidden" />
             </div>
