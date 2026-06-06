@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Camera, CameraOff, Loader2, Play, Square, Volume2, VolumeX, Flame, AlertCircle, RefreshCcw, User, Activity, Heart, UserCog, Pause, PlayIcon, Trash2, FileDown, ShieldCheck, Eye } from "lucide-react";
+import { Camera, CameraOff, Loader2, Play, Square, Volume2, VolumeX, Flame, AlertCircle, RefreshCcw, User, Activity, Heart, UserCog, Pause, Trash2, FileDown, ShieldCheck, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { invokeFn } from "@/lib/api";
 import coachNova from "@/assets/coach-nova.jpg";
@@ -372,7 +372,7 @@ export const AIMirror = () => {
                   {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4 text-neon" />}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => { setPaused((p) => !p); toast.message(paused ? "AI snapshots resumed" : "AI snapshots paused"); }} aria-label="Pause AI">
-                  {paused ? <PlayIcon className="h-4 w-4 text-cyan" /> : <Pause className="h-4 w-4" />}
+                  {paused ? <Play className="h-4 w-4 text-cyan" /> : <Pause className="h-4 w-4" />}
                 </Button>
                 {camOn
                   ? <Button size="sm" variant="outline" onClick={stopCamera}><CameraOff className="h-4 w-4 mr-2" />Stop cam</Button>
@@ -562,7 +562,7 @@ export const AIMirror = () => {
               </ul>
               <div className="grid grid-cols-2 gap-2">
                 <Button size="sm" variant="outline" onClick={() => setPaused((p) => !p)}>
-                  {paused ? <><PlayIcon className="h-4 w-4 mr-1" />Resume AI</> : <><Pause className="h-4 w-4 mr-1" />Pause AI</>}
+                  {paused ? <><Play className="h-4 w-4 mr-1" />Resume AI</> : <><Pause className="h-4 w-4 mr-1" />Pause AI</>}
                 </Button>
                 <Button size="sm" variant="outline" onClick={() => setShowSnapshot(true)} disabled={!lastSnapshot}>
                   <Eye className="h-4 w-4 mr-1" />Review last frame
