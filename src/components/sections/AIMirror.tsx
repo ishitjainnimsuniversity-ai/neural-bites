@@ -300,6 +300,7 @@ export const AIMirror = () => {
       reps: Math.round(reps), kcal: +kcal.toFixed(1),
       seconds, zonePeak,
     });
+    window.dispatchEvent(new CustomEvent("nb:session"));
     refreshHistory();
   };
 
