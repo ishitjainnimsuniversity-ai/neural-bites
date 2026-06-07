@@ -104,12 +104,12 @@ export const VoiceAssistant = () => {
     }
     if (listening) { try { recRef.current?.stop(); } catch {} stopMeter(); setListening(false); return; }
 
-    // Explicitly request mic permission first — surfaces the prompt and clear errors.
+    // Pre-flight permission check only — don't hold a stream, it conflicts with
+    // SpeechRecognition on Chromium and triggers "audio-capture" / "not-allowed".
     try {
       if (navigator.mediaDevices?.getUserMedia) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-        streamRef.current = stream;
-        startMeter(stream);
+        const probe = await navigator.mediaDevices.getUserMedia({ audio: true });
+        probe.getTracks().forEach((t) => t.stop());
         setPermState("granted");
       }
     } catch (err: any) {
@@ -119,7 +119,7 @@ export const VoiceAssistant = () => {
           ? "Microphone permission denied. Allow mic access in your browser site settings and try again."
           : name === "NotFoundError"
           ? "No microphone found. Plug one in and retry."
-          : "Couldn't access the microphone. Check browser permissions.";
+          : `Mic unavailable (${name || "unknown"}). If you're inside an embedded preview, open the app in a new tab.`;
       setMicError(m); setPermState("denied"); toast.error(m); return;
     }
 

@@ -116,17 +116,19 @@ const CourseDialog = ({ course, onClose }: { course: Course; onClose: () => void
                   <div className="text-[11px] font-mono text-muted-foreground">{Math.min(100, Math.round((watched / m.durationSec) * 100))}%</div>
                 </div>
                 {prev ? (
-                  <div className="aspect-video rounded-lg overflow-hidden bg-background">
-                    <iframe
-                      src={`https://www.youtube-nocookie.com/embed/${m.videoId}?modestbranding=1&rel=0${isActive ? "&autoplay=1" : ""}`}
-                      title={m.title}
-                      allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
-                      className="w-full h-full"
-                    />
-                    <div className="flex gap-2 p-2 flex-wrap">
+                  <div>
+                    <div className="aspect-video rounded-lg overflow-hidden bg-background">
+                      <iframe
+                        src={`https://www.youtube-nocookie.com/embed/${m.videoId}?modestbranding=1&rel=0${isActive ? "&autoplay=1" : ""}`}
+                        title={m.title}
+                        allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+                        className="w-full h-full"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-2 flex-wrap">
                       <Button size="sm" variant="outline" onClick={() => markWatched(m.id, Math.floor(m.durationSec * 0.5))}>I've watched 50%</Button>
                       <Button size="sm" onClick={() => markWatched(m.id, m.durationSec, true)} className="bg-gradient-neural">
-                        Mark complete & next <ArrowRight className="h-4 w-4 ml-1" />
+                        {idx === course.modules.length - 1 ? "Mark complete" : "Mark complete & next"} <ArrowRight className="h-4 w-4 ml-1" />
                       </Button>
                     </div>
                   </div>
