@@ -22,6 +22,8 @@ const App = () => (
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/auth/callback" element={<Auth />} />
+          <Route path="/auth/v1/callback" element={<Auth />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/certificate/:serial" element={<Certificate />} />
           <Route path="/verify" element={<Verify />} />
