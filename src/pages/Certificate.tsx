@@ -39,14 +39,10 @@ export default function Certificate() {
           <p className="text-sm text-muted-foreground">has successfully completed all modules and exams of</p>
           <div className="font-semibold text-lg mt-2">{cert.courseTitle}</div>
           <div className="text-xs text-muted-foreground mt-1">Issued {new Date(cert.issuedAt).toLocaleDateString()}</div>
-          <div className="grid grid-cols-2 gap-6 mt-10 text-left">
-            <div>
-              <div className="font-display italic text-xl border-b border-primary/40 pb-1">Ishit Jain</div>
-              <div className="text-[11px] font-mono text-muted-foreground mt-1">Co-CEO, NeuralBites</div>
-            </div>
-            <div>
-              <div className="font-display italic text-xl border-b border-primary/40 pb-1">Shreya Thakur</div>
-              <div className="text-[11px] font-mono text-muted-foreground mt-1">Co-CEO, NeuralBites</div>
+          <div className="flex flex-col items-center mt-10">
+            <div className="text-center">
+              <div className="font-display italic text-xl border-b border-primary/40 pb-1 px-4 inline-block">Ishit Jain</div>
+              <div className="text-[11px] font-mono text-muted-foreground mt-1">CEO, NeuralBites</div>
             </div>
           </div>
           <div className="mt-8 text-[11px] font-mono text-muted-foreground flex items-center justify-center gap-2">

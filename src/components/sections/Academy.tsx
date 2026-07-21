@@ -154,7 +154,7 @@ const CourseDialog = ({ course, onClose }: { course: Course; onClose: () => void
           })}
         </div>
         <div className="mt-4 flex items-center justify-between">
-          <div className="text-[11px] text-muted-foreground">Issued by Ishit Jain & Shreya Thakur (Co-CEOs, NeuralBites)</div>
+          <div className="text-[11px] text-muted-foreground">Issued by Ishit Jain (CEO, NeuralBites)</div>
           <Button onClick={tryCertify} className="bg-gradient-neural"><Award className="h-4 w-4 mr-2" />Claim certificate</Button>
         </div>
 
