@@ -15,6 +15,7 @@ const links = [
   { label: "Voice", target: "voice" },
   { label: "AI Mirror", target: "mirror" },
   { label: "Academy", target: "academy" },
+  { label: "Blog", target: "", path: "/blog" },
 ];
 
 const scrollTo = (id: string) => {
@@ -30,7 +31,19 @@ export const Navbar = () => {
     if (user) { void migrateLocalToCloud(); }
   }, [user?.id]);
   const handleSignOut = async () => { await signOut(); toast.success("Signed out"); nav("/"); };
-  const go = (id: string) => { setOpen(false); scrollTo(id); };
+  const go = (target: string, path?: string) => {
+    setOpen(false);
+    if (path) {
+      nav(path);
+    } else {
+      if (window.location.pathname !== "/") {
+        nav("/");
+        setTimeout(() => scrollTo(target), 150);
+      } else {
+        scrollTo(target);
+      }
+    }
+  };
   return (
     <header className="fixed top-0 inset-x-0 z-50">
       <div className="container mx-auto mt-4 px-4">
@@ -45,8 +58,8 @@ export const Navbar = () => {
           <div className="hidden md:flex items-center gap-6 text-sm text-muted-foreground">
             {links.map((l) => (
               <button
-                key={l.target}
-                onClick={() => go(l.target)}
+                key={l.label}
+                onClick={() => go(l.target, l.path)}
                 className="hover:text-foreground transition-colors"
               >
                 {l.label}
@@ -82,8 +95,8 @@ export const Navbar = () => {
           <div className="md:hidden glass rounded-2xl mt-2 p-3 flex flex-col gap-1">
             {links.map((l) => (
               <button
-                key={l.target}
-                onClick={() => go(l.target)}
+                key={l.label}
+                onClick={() => go(l.target, l.path)}
                 className="text-left px-3 py-2 rounded-lg hover:bg-primary/10 text-sm"
               >
                 {l.label}

@@ -9,6 +9,7 @@ import Certificate from "./pages/Certificate.tsx";
 import Verify from "./pages/Verify.tsx";
 import Auth from "./pages/Auth.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
+import Blog from "./pages/Blog.tsx";
 
 const queryClient = new QueryClient();
 
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/certificate/:serial" element={<Certificate />} />
           <Route path="/verify" element={<Verify />} />
           <Route path="/verify/:serial" element={<Verify />} />
+          <Route path="/blog" element={<Blog />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
