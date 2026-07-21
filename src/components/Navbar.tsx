@@ -1,10 +1,11 @@
 import { Brain, Menu, X, LogIn, LogOut, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useSession, signOut } from "@/hooks/useSession";
 import { migrateLocalToCloud } from "@/lib/cloudSync";
 import { toast } from "sonner";
+import AuthModal from "./AuthModal";
 
 const links = [
   { label: "Recognition", target: "recognition" },
@@ -25,6 +26,7 @@ const scrollTo = (id: string) => {
 
 export const Navbar = () => {
   const [open, setOpen] = useState(false);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const { user } = useSession();
   const nav = useNavigate();
   useEffect(() => {
@@ -73,7 +75,7 @@ export const Navbar = () => {
                 <Button onClick={handleSignOut} size="sm" variant="outline"><LogOut className="h-3 w-3 mr-1" />Sign out</Button>
               </>
             ) : (
-              <Button asChild size="sm" variant="outline"><Link to="/auth"><LogIn className="h-3 w-3 mr-1" />Sign in</Link></Button>
+              <Button onClick={() => setIsAuthOpen(true)} size="sm" variant="outline"><LogIn className="h-3 w-3 mr-1" />Sign in</Button>
             )}
             <Button
               onClick={() => go("recognition")}
@@ -105,6 +107,8 @@ export const Navbar = () => {
           </div>
         )}
       </div>
+
+      <AuthModal open={isAuthOpen} onOpenChange={setIsAuthOpen} />
     </header>
   );
 };
